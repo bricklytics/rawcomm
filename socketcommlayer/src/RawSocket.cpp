@@ -5,6 +5,8 @@
 #include "RawSocket.h"
 
 RawSocket::RawSocket(const std::string& interface) : interface_name(interface) {
+    memset(mac_address, 0, 6);
+    memset(&socket_address, 0, sizeof(sockaddr_ll));
     // Create a raw socket
     sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
     if (sockfd < 0) {
@@ -33,6 +35,7 @@ bool RawSocket::bindSocket() {
         return false;
     }
 
+    socket_address.sll_family = AF_PACKET;
     socket_address.sll_ifindex = ifr.ifr_ifindex;
     socket_address.sll_protocol = htons(ETH_P_ALL);
 

@@ -5,7 +5,7 @@
 #define PACKET_SIZE 1500
 
 int main() {
-    std::string interface = "eth0";  // Change to your network interface
+    std::string interface = "lo";  // Change to your network interface
 
     PacketSender sender(interface);
     PacketReceiver receiver(interface);
