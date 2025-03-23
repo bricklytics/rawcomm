@@ -9,7 +9,7 @@
 #define TIMEOUT_SECONDS 5
 
 int main() {
-    std::string interface = "wlp9s0";  // Change to your network interface
+    std::string interface = "lo";  // Change to your network interface
 
     PacketSender sender(interface);
     PacketReceiver receiver(interface);
