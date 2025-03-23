@@ -6,5 +6,9 @@
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
-/.idea/
-/build/
+
+#Project
+.idea/*.xml
+
+#Build directory
+build/
