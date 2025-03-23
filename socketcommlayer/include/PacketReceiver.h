@@ -10,8 +10,8 @@
 class PacketReceiver final : public RawSocket {
 public:
     explicit PacketReceiver(const std::string& interface);
-
     bool receivePacket(void *buffer, size_t length) const;
+    void setTimeout(int seconds, int microseconds);
 };
 
 #endif // PACKET_RECEIVER_H
