@@ -4,7 +4,7 @@
 
 #include "RawSocket.h"
 
-RawSocket::RawSocket(const std::string& interface) : interface_name(interface) {
+RawSocket::RawSocket(const std::string &interface) : interface_name(interface) {
     memset(mac_address, 0, 6);
     memset(&socket_address, 0, sizeof(sockaddr_ll));
     // Create a raw socket

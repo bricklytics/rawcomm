@@ -9,20 +9,21 @@ BUILD_DIR = build
 TARGET = rawcomm
 
 # Source dirs
-LAYER_DIRS=$(shell ls -dC *layer)
-$(info Layers: $(LAYER_DIRS))
+#LAYER_DIRS=$(shell ls -dC *layer/feature/*/src/)
+#$(info Layers: $(LAYER_DIRS))
 
-SRC_DIR=$(foreach layer,$(LAYER_DIRS),$(layer)/src)
+SRC_DIR=$(shell ls -dC *layer/feature/*/src/)
 # Debug: Print SRC_DIR to verify it's populated
 $(info Sources Dir: $(SRC_DIR))
 
 # Source files
-SRCS=$(foreach srcs,$(SRC_DIR),$(wildcard ./$(srcs)/*.cpp)) ./main.cpp
+SRCS=$(foreach srcs,$(SRC_DIR),$(wildcard ./$(srcs)/*.cpp)) ./app/src/main.cpp
 # Debug: Print SRCS to verify it's populated
 $(info Sources: $(SRCS))
 
 # Include dirs
-INCLUDE_DIR=$(foreach layer,$(LAYER_DIRS),-I./$(layer)/include)
+INCLUDE_DIRS=$(shell ls -dC *layer/feature/*/include/)
+INCLUDE_DIR=$(foreach incl,$(INCLUDE_DIRS),-I ./$(incl))
 # Debug: Print INCLUDE_DIR to verify it's populated
 $(info Include Dir: $(INCLUDE_DIR))
 
@@ -33,6 +34,10 @@ $(info Includes: $(INCLUDES))
 
 # Generate corresponding object files in the build directory
 OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))
+
+run: $(TARGET)
+	@echo "Running $<"
+	@sudo ./$(BUILD_DIR)/$<
 
 # Default target
 all: $(TARGET)

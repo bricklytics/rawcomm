@@ -32,7 +32,7 @@ bool PacketSender::sendPacket(const void *buffer, size_t length) {
 
 bool PacketSender::sendPacket(const uint8_t *dest_mac, const void *buffer, size_t length) {
     uint8_t packet[1500];
-    ether_header *eth_header = reinterpret_cast<struct ether_header *>(packet);
+    auto *eth_header = reinterpret_cast<struct ether_header *>(packet);
 
     // Set destination MAC address
     memcpy(eth_header->ether_dhost, dest_mac, 6);

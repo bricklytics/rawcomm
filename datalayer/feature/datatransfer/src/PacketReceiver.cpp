@@ -16,8 +16,8 @@ bool PacketReceiver::receivePacket(void* buffer, size_t length) const {
     return true;
 }
 
-void PacketReceiver::setTimeout(int seconds, int microseconds) {
-    struct timeval timeout{};
+void PacketReceiver::setTimeout(int seconds, int microseconds) const {
+    timeval timeout{};
     timeout.tv_sec = seconds;
     timeout.tv_usec = microseconds;
 

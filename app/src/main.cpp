@@ -9,7 +9,10 @@
 #define TIMEOUT_SECONDS 5
 
 int main() {
-    std::string interface = "lo";  // Change to your network interface
+    std::string interface = "lo";
+
+    std::cout << "Enter the network interface (e.g., lo, eth0): ";
+    std::cin >> interface;  // Change to your network interface
 
     PacketSender sender(interface);
     PacketReceiver receiver(interface);
@@ -18,6 +21,7 @@ int main() {
         std::cerr << "Failed to bind sockets!" << std::endl;
         return EXIT_FAILURE;
     }
+
     // Set socket timeout
     receiver.setTimeout(2, 0);  // 2 seconds timeout per recvfrom() call
 
