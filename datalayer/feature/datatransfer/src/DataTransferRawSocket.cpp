@@ -66,7 +66,7 @@ bool DataTransferRawSocket::getSourceMacAddress() {
         return false;
     }
 
-    memcpy(source_macadd.data(), ifr.ifr_hwaddr.sa_data, source_macadd.size());
+    memcpy(source_macadd.data(), ifr.ifr_hwaddr.sa_data, ETH_ALEN);
     printf("Source MAC address: %02X:%02X:%02X:%02X:%02X:%02X\n",
            source_macadd[0], source_macadd[1], source_macadd[2],
            source_macadd[3], source_macadd[4], source_macadd[5]);
@@ -102,8 +102,8 @@ bool DataTransferRawSocket :: getTargetMacAddress() {
     // Prepare Ethernet frame (destination MAC = Broadcast)
     std::vector<uint8_t> dest_mac = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};  // Broadcast
     ethhdr eth_header{};
-    memcpy(eth_header.h_dest, dest_mac.data(), dest_mac.size());
-    memcpy(eth_header.h_source, source_macadd.data(), source_macadd.size());
+    memcpy(eth_header.h_dest, dest_mac.data(), ETH_ALEN);
+    memcpy(eth_header.h_source, source_macadd.data(), ETH_ALEN);
     eth_header.h_proto = htons(CUSTOM_ETHERTYPE);  // Custom EtherType
 
     // Prepare payload (can be empty or include a probe message)
@@ -145,19 +145,19 @@ bool DataTransferRawSocket :: getTargetMacAddress() {
         // Check if this is our custom EtherType response
         auto *recv_eth = reinterpret_cast<ethhdr *>(recv_buf);
         if (ntohs(recv_eth->h_proto) == CUSTOM_ETHERTYPE) {
-            memcpy(dest_macadd.data(), recv_eth->h_source, 6);
+            memcpy(dest_macadd.data(), recv_eth->h_source, ETH_ALEN);
             printf("Received response from MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
                       dest_macadd[0], dest_macadd[1], dest_macadd[2],
                       dest_macadd[3], dest_macadd[4], dest_macadd[5]
             );
-            break;
+            return true;
         }
     }
     return true;
 }
 
 bool DataTransferRawSocket::syncCommChannel() {
-    setTimeout(60, 0); // Set timeout for receiving
+    setTimeout(TIMEOUT_SECONDS, 0); // Set timeout for receiving
 
     std::cout << "Waiting for source MAC address..." << std::endl;
     if (!getSourceMacAddress()) {
@@ -208,14 +208,14 @@ void DataTransferRawSocket::setTimeout(int seconds, int microseconds) {
 }
 
 bool DataTransferRawSocket::sendData(const std::vector<uint8_t>& payload) {
-    // ethhdr eth_header{};
-    // memcpy(eth_header.h_dest, dest_macadd.data(), dest_macadd.size());
-    // memcpy(eth_header.h_source, source_macadd.data(), source_macadd.size());
-    // eth_header.h_proto = htons(CUSTOM_ETHERTYPE);  // Custom EtherType
-    //
-    // std::vector<uint8_t> buffer(sizeof(eth_header));
-    // memcpy(buffer.data(), &eth_header, sizeof(eth_header));
-    std::vector<uint8_t> buffer;
+    ethhdr eth_header{};
+    memcpy(eth_header.h_dest, dest_macadd.data(), ETH_ALEN);
+    memcpy(eth_header.h_source, source_macadd.data(), ETH_ALEN);
+    eth_header.h_proto = htons(CUSTOM_ETHERTYPE);  // Custom EtherType
+
+    std::vector<uint8_t> buffer(sizeof(eth_header));
+    memcpy(buffer.data(), &eth_header, sizeof(eth_header));
+    // auto buffer = std::vector<uint8_t>(PACKET_SIZE);
     buffer.insert(buffer.end(), payload.begin(), payload.end());
 
     // Send the packet
@@ -255,19 +255,18 @@ std::vector<uint8_t> DataTransferRawSocket::receiveData() {
         return buffer;
     }
 
-    // ethhdr eth_header{};
-    // memcpy(&eth_header, buffer.data(), sizeof(eth_header));
-    // if (
-    //     memcmp(eth_header.h_dest, source_macadd.data(), ETH_ALEN) != 0 &&
-    //     memcmp(eth_header.h_dest, dest_macadd.data(), ETH_ALEN) != 0
-    // ) {
-    //     buffer.clear();
-    //     return buffer;
-    // }
-    //
-    // buffer.erase(buffer.begin(), buffer.begin() + sizeof(eth_header));
-    std::vector payload(buffer.begin(), buffer.end());
+    ethhdr eth_header{};
+    memcpy(&eth_header, buffer.data(), sizeof(eth_header));
 
+    if (
+        memcmp(eth_header.h_dest, source_macadd.data(), ETH_ALEN) != 0 &&
+        memcmp(eth_header.h_source, dest_macadd.data(), ETH_ALEN) != 0
+    ) {
+        buffer.clear();
+        return buffer;
+    }
+
+    std::vector payload(buffer.begin() + sizeof(eth_header), buffer.end());
     std::cout << "Packet received! Bytes: " << bytes_received << std::endl;
-    return buffer;
+    return payload;
 }

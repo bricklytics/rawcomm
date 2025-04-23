@@ -11,6 +11,7 @@
 
 #define PACKET_SIZE 1500
 #define RETRIES 3
+#define TIMEOUT_SECONDS 10
 #define CUSTOM_ETHERTYPE 0x88b5
 
 class DataTransferRawSocket : public IBaseSocket {
