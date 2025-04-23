@@ -50,6 +50,22 @@ bool DataTransferRawSocket::bindSocket() {
         return false;
     }
 
+    packet_mreq packet_mr{};
+    packet_mr.mr_ifindex = ifr.ifr_ifindex;
+    packet_mr.mr_type = PACKET_MR_PROMISC;
+
+    auto granttedPromisc= setsockopt(
+        sockfd,
+        SOL_PACKET,
+        PACKET_ADD_MEMBERSHIP,
+        &packet_mr,
+        sizeof(packet_mr)
+    );
+    if ( granttedPromisc < 0 ) {
+        perror("Failed to set socket packet promiscuous option");
+        return false;
+    }
+
     std::cout << "Socket bound to interface: " << interface_name << std::endl;
     return true;
 }
@@ -108,11 +124,9 @@ bool DataTransferRawSocket :: getTargetMacAddress() {
 
     // Prepare payload (can be empty or include a probe message)
     std::string payload = "MAC_REQUEST";
-    //uint8_t frame[sizeof(eth_header) + sizeof(payload)];
     std::vector<uint8_t>frame(sizeof(eth_header) + payload.size());
 
     memcpy(frame.data(), &eth_header, sizeof(eth_header));
-    // memcpy(frame + sizeof(eth_header), payload, sizeof(payload));
     frame.insert(frame.end(), payload.begin(), payload.end());
 
     // Send the Ethernet frame
@@ -128,13 +142,13 @@ bool DataTransferRawSocket :: getTargetMacAddress() {
     // Listen for response
     uint8_t recv_buf[1024];
     auto retries = 0;
-    while (retries < RETRIES) {
+    while (true) {
         ssize_t recv_len = recv(sockfd, recv_buf, sizeof(recv_buf), 0);
         if (recv_len <= 0) {
             perror("Failed to receive response! Retrying...");
             std::this_thread::sleep_for(std::chrono::milliseconds(500));
             retries++;
-            if (retries < RETRIES) {
+            if (retries > RETRIES) {
                 std::cerr << "Failed to establish connection after " << RETRIES << " retries." << std::endl;
                 return false;
             }
@@ -150,7 +164,7 @@ bool DataTransferRawSocket :: getTargetMacAddress() {
                       dest_macadd[0], dest_macadd[1], dest_macadd[2],
                       dest_macadd[3], dest_macadd[4], dest_macadd[5]
             );
-            return true;
+            break;
         }
     }
     return true;
@@ -179,7 +193,6 @@ bool DataTransferRawSocket::openSocket() {
         std::cerr << "Socket creation failed" << std::endl;
         return false;
     }
-
     std::cout << "Raw socket created on interface: " << interface_name << std::endl;
 
     if (!bindSocket()) {
