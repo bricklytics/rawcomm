@@ -18,18 +18,9 @@
 
 class DataTransferRawSocket : public IBaseSocket {
     RawSocket *rawSocket;
-    int sockfd{};                   //socked file descriptor
-    sockaddr_ll socket_address{};
     std::string interface_name;
     std::vector<uint8_t> source_macadd;
     std::vector<uint8_t> dest_macadd;
-
-    bool bindSocket();
-    bool getTargetMacAddress();
-    bool getSourceMacAddress();
-    void sendMacaddRequest(const std::vector<uint8_t> &frame, sockaddr_ll socket_addr) const;
-
-    bool setupBroadcast(ethhdr &eth_header, sockaddr_ll &socket_addr, bool &returns);
 
     bool syncCommChannel();
 

@@ -12,7 +12,6 @@ DataTransferRawSocket::DataTransferRawSocket(
     rawSocket = nullptr;
     source_macadd = std::vector<uint8_t>(6);
     dest_macadd = std::vector<uint8_t>(6);
-    memset(&socket_address, 0, sizeof(sockaddr_ll));
 }
 
 DataTransferRawSocket::~DataTransferRawSocket() {
@@ -41,10 +40,8 @@ bool DataTransferRawSocket::syncCommChannel() {
 bool DataTransferRawSocket::openSocket() {
     // Create a raw socket
     rawSocket = new RawSocket(interface_name);
-    sockfd = rawSocket->getSocket();
-    socket_address = rawSocket->getSockaddr();
 
-    if (sockfd < 0) {
+    if (rawSocket->getSocket() < 0) {
         perror("Socket creation failed");
         exit(EXIT_FAILURE);
     }
@@ -77,9 +74,12 @@ bool DataTransferRawSocket::sendData(const std::vector<uint8_t> &payload) {
     memcpy(buffer.data(), &eth_header, sizeof(eth_header));
     buffer.insert(buffer.end(), payload.begin(), payload.end());
 
+    sockaddr_ll socket_address{};
+    memcpy(&socket_address, rawSocket->getSockaddr(), sizeof(socket_address));
+
     // Send the packet
     auto isSent = sendto(
-        sockfd,
+        rawSocket->getSocket(),
         buffer.data(),
         buffer.size(),
         0,
@@ -98,7 +98,7 @@ bool DataTransferRawSocket::sendData(const std::vector<uint8_t> &payload) {
 std::vector<uint8_t> DataTransferRawSocket::receiveData() {
     auto buffer = std::vector<uint8_t>(PACKET_SIZE);
     auto bytes_received = recvfrom(
-        sockfd,
+        rawSocket->getSocket(),
         buffer.data(),
         buffer.size(),
         0,
