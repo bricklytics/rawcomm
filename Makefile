@@ -6,7 +6,8 @@ CXXFLAGS = -g -std=c++17 -Wall -Wextra -pedantic
 
 # Target executable
 BUILD_DIR = build
-TARGET = rawcomm
+CLIENT_TARGET = client
+SERVER_TARGET = server
 
 # Source dirs
 #LAYER_DIRS=$(shell ls -dC *layer/feature/*/src/)
@@ -40,15 +41,29 @@ run: $(TARGET)
 	@sudo ./$(BUILD_DIR)/$<
 
 # Default target
-all: $(TARGET)
-	@mv $(TARGET) $(BUILD_DIR)
-	@echo "Build complete"
+#all: target_server target_client
 
-# Link the target executable
-$(TARGET): $(OBJS)
+target_server: CXXFLAGS += -DSERVER
+target_server: $(SERVER_TARGET)
+
+target_client: CXXFLAGS += -DCLIENT
+target_client: $(CLIENT_TARGET)
+
+# Build the server target
+$(SERVER_TARGET): $(OBJS)
 	@echo "Linking $@"
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
+	@mv $(SERVER_TARGET) $(BUILD_DIR)
+	@echo "Build complete"
+
+# Build the client target
+$(CLIENT_TARGET): $(OBJS)
+	@echo "Linking $@"
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
+	@mv $(CLIENT_TARGET) $(BUILD_DIR)
+	@echo "Build complete"
 
 # Compile each source file into an object file
 $(BUILD_DIR)/%.o: %.cpp
