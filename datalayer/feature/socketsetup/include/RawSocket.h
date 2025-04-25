@@ -41,7 +41,7 @@ public:
 
     [[nodiscard]] int getSocket() const;
 
-    [[nodiscard]] sockaddr_ll getSockaddr() const;
+    [[nodiscard]] const sockaddr_ll* getSockaddr() const;
 
     [[nodiscard]] std::vector<uint8_t> getSourceMac() const;
 

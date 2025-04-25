@@ -35,8 +35,8 @@ int RawSocket::getSocket() const {
     return sockfd;
 }
 
-sockaddr_ll RawSocket::getSockaddr() const {
-    return socket_address;
+const sockaddr_ll* RawSocket::getSockaddr() const {
+    return &socket_address;
 }
 
 std::vector<uint8_t> RawSocket::getSourceMac() const {
@@ -148,12 +148,11 @@ bool RawSocket :: setupBroadcast(ethhdr &eth_header, sockaddr_ll &socket_addr) c
 
     // Prepare Ethernet frame (destination MAC = Broadcast)
     std::vector<uint8_t> dest_mac = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};  // Broadcast
-    eth_header = {};
+
     memcpy(eth_header.h_dest, dest_mac.data(), ETH_ALEN);
     memcpy(eth_header.h_source, source_macadd.data(), ETH_ALEN);
     eth_header.h_proto = htons(CUSTOM_ETHERTYPE);  // Custom EtherType
 
-    socket_addr = {};
     memset(&socket_addr, 0, sizeof(socket_addr));
     socket_addr.sll_ifindex = ifr.ifr_ifindex;
     socket_addr.sll_halen = ETH_ALEN;
