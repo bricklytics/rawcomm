@@ -6,8 +6,10 @@
 #define DATATRANSFERRAWSOCKET_H
 
 #include "../../base/include/IBaseSocket.h"
+#include "../../socketsetup/include/RawSocket.h"
 #include <linux/if_packet.h>
 #include <iostream>
+#include <linux/if_ether.h>
 
 #define PACKET_SIZE 1500
 #define RETRIES 3
@@ -15,7 +17,7 @@
 #define CUSTOM_ETHERTYPE 0x88b5
 
 class DataTransferRawSocket : public IBaseSocket {
-private:
+    RawSocket *rawSocket;
     int sockfd{};                   //socked file descriptor
     sockaddr_ll socket_address{};
     std::string interface_name;
@@ -26,6 +28,9 @@ private:
     bool getTargetMacAddress();
     bool getSourceMacAddress();
     void sendMacaddRequest(const std::vector<uint8_t> &frame, sockaddr_ll socket_addr) const;
+
+    bool setupBroadcast(ethhdr &eth_header, sockaddr_ll &socket_addr, bool &returns);
+
     bool syncCommChannel();
 
 public:
