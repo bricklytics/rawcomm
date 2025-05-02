@@ -7,9 +7,7 @@
 
 #include "../../base/include/IBaseSocket.h"
 #include "../../socketsetup/include/RawSocket.h"
-#include <linux/if_packet.h>
 #include <iostream>
-#include <linux/if_ether.h>
 
 #define PACKET_SIZE 1500
 #define RETRIES 3

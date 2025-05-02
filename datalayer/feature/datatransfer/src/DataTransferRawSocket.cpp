@@ -19,8 +19,6 @@ DataTransferRawSocket::~DataTransferRawSocket() {
 }
 
 bool DataTransferRawSocket::syncCommChannel() {
-    setTimeout(TIMEOUT_SECONDS, 0); // Set timeout for receiving
-
     std::cout << "Waiting for source MAC address..." << std::endl;
     if (!rawSocket->getSourceMacAddress()) {
         std::cerr << "Failed to get source MAC address!" << std::endl;

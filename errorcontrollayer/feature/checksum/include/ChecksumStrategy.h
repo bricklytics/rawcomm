@@ -5,7 +5,6 @@
 #ifndef CHECKSUMSTRATEGY_H
 #define CHECKSUMSTRATEGY_H
 
-#include <vector>
 #include <cstdint>
 #include "../../base/include/IErrorControlStrategy.h"
 
