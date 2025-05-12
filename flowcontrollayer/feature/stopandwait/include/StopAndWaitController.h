@@ -14,7 +14,7 @@
 
 #define START_MARK 0x7E                 // 01111110
 
-enum class PacketType {
+enum class PacketType : uint8_t {
     ACK = 0x00,                  // Acknowledgment
     NACK = 0x01,                 // Negative acknowledgment
     DATA = 0x02,                 // Data packet
@@ -28,7 +28,7 @@ enum class PacketType {
     MOVE_DOWN = 0x0C,            // Move down packet
     MOVE_LEFT = 0x0D,            // Move left packet
     ERROR = 0x0F                 // Error packet
-    //Types 0x03, 0x0E are reserved for future use
+    //Types 0x03, 0x05 and 0x0E are reserved for future use
 };
 
 
@@ -69,6 +69,8 @@ class StopAndWaitController : public IFlowController {
 
     static std::vector<uint8_t> serializeHeader(const PacketHeader& header);
     static PacketHeader deserializeHeader(const std::vector<uint8_t>& buffer);
+
+    static uint8_t toUint8(PacketType type);
 
 public:
 
