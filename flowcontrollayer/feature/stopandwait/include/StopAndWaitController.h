@@ -9,16 +9,12 @@
 #include "../../../../datalayer/feature/datatransfer/include/DataTransferRawSocket.h"
 #include "../../../../errorcontrollayer/feature/checksum/include/ChecksumStrategy.h"
 
-#include <condition_variable>
-#include <mutex>
-#include <deque>
-
 #define DATA_SIZE_MAX 127               // Maximum data size in a packet in bytes
 #define PAKET_SIZE_MAX 127              // Maximum packet size in bytes - including header
 
 #define START_MARK 0x7E                 // 01111110
 
-enum class PacketType : uint8_t {
+enum class PacketType {
     ACK = 0x00,                  // Acknowledgment
     NACK = 0x01,                 // Negative acknowledgment
     DATA = 0x02,                 // Data packet
@@ -48,10 +44,8 @@ class StopAndWaitController : public IFlowController {
     IBaseSocket *transmitter;
     IErrorControlStrategy *errorControlStrategy;
 
-    uint8_t packet_type;    //infor the type of data being sent
+    uint8_t packet_type;                    //info the type of data being sent
     uint8_t last_seq_num;
-    std::mutex mtx;
-    std::condition_variable cv;
     bool listening = true;
 
     typedef struct kermit_header {
@@ -67,19 +61,19 @@ class StopAndWaitController : public IFlowController {
         std::vector<uint8_t> data;
     } Packet;
 
-    std::deque<Packet> receive_buffer;
-
-    static uint8_t nextSeqNum(uint8_t current);
+    uint8_t nextSeqNum() const;
     bool waitForAck(uint8_t seq_num);
 
-    void sendAck(uint8_t seq_num) const;
-    void sendNack(uint8_t seq_num) const;
+    void sendAck(uint8_t seq_num);
+    void sendNack(uint8_t seq_num);
+
+    static std::vector<uint8_t> serializeHeader(const PacketHeader& header);
+    static PacketHeader deserializeHeader(const std::vector<uint8_t>& buffer);
 
 public:
 
     StopAndWaitController();
     StopAndWaitController(IBaseSocket *transmitter);
-    StopAndWaitController(IBaseSocket *transmitter, IErrorControlStrategy *errorControlStrategy);
 
     ~StopAndWaitController() override;
 
@@ -101,6 +95,12 @@ public:
      * @return  a vector of bytes containing the received packet
      */
     std::vector<uint8_t> receive() override;
+
+    /**
+     * Notify the controller of delivery status (e.g., ACK or NACK)
+     * This method is called whenever an ACK or NACK is required.
+     */
+    void notify() override;
 };
 
 #endif //STOPANDWAITCONTROLLER_H
