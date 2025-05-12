@@ -18,5 +18,8 @@ public:
     // Receive a packet and handle it sending ACK/NACK
     virtual std::vector<uint8_t> receive() = 0;
 
+    // Notify the controller of delivery status (e.g., ACK or NACK)
+    virtual void notify() = 0;
+
 };
 #endif //IFLOWCONTROLER_H
