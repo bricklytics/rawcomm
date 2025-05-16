@@ -58,12 +58,16 @@ bool StopAndWaitController::dispatch(const std::vector<uint8_t> &data) {
 
     // Send the packet
     bool hasSucceeded = false;
+    int retries = 0;
     do {
         transmitter->sendData(packet);
         hasSucceeded = waitForAck(header.seq_num); // Block until ACK/NACK is received
+
+        if (retries >= RETRIES) return hasSucceeded;
+        retries++;
     } while (!hasSucceeded);
 
-    return true;
+    return hasSucceeded;
 }
 
 std::vector<uint8_t> StopAndWaitController::receive() {
@@ -73,7 +77,7 @@ std::vector<uint8_t> StopAndWaitController::receive() {
 
     do {
         auto pckt = transmitter->receiveData();
-        if (pckt.empty()) continue;
+        if (pckt.empty()) return pckt; // Timeout or error
         if (pckt[0] != START_MARK) continue;
 
         //Prepare header
@@ -112,9 +116,11 @@ bool StopAndWaitController::waitForAck(uint8_t seq_num) const {
     while (!hasSucceeded) {
         auto pckt = transmitter->receiveData();
 
-        if (pckt.empty()) continue;
+        if (pckt.empty()) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) break; //timeout
+            continue;
+        }
         if (pckt[0] != START_MARK) continue;
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
         //Prepare header
         PacketHeader header;
@@ -130,8 +136,7 @@ bool StopAndWaitController::waitForAck(uint8_t seq_num) const {
         if (header.type == toUint8(PacketType::NACK)) break;
     }
 
-    if (hasSucceeded) return true;
-    return false;
+    return hasSucceeded;
 }
 
 void StopAndWaitController::sendAck(uint8_t seq_num) {
