@@ -62,7 +62,7 @@ class StopAndWaitController : public IFlowController {
     } Packet;
 
     uint8_t nextSeqNum() const;
-    bool waitForAck(uint8_t seq_num);
+    bool waitForAck(uint8_t seq_num) const;
 
     void sendAck(uint8_t seq_num);
     void sendNack(uint8_t seq_num);
