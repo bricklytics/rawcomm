@@ -104,7 +104,7 @@ void RawSocket::setTimeout(int seconds, int microseconds) const {
 bool RawSocket :: getSourceMacAddress() {
     ifreq ifr{};
     memset(&ifr, 0, sizeof(ifr));
-    memcpy(ifr.ifr_name, interface_name.c_str(), IFNAMSIZ);
+    std::memmove(ifr.ifr_name, interface_name.c_str(), IFNAMSIZ);
 
     // Get the MAC address
     auto ioctlResult = ioctl(sockfd, SIOCGIFHWADDR, &ifr);
@@ -149,14 +149,14 @@ bool RawSocket :: setupBroadcast(ethhdr &eth_header, sockaddr_ll &socket_addr) c
     // Prepare Ethernet frame (destination MAC = Broadcast)
     std::vector<uint8_t> dest_mac = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};  // Broadcast
 
-    memcpy(eth_header.h_dest, dest_mac.data(), ETH_ALEN);
-    memcpy(eth_header.h_source, source_macadd.data(), ETH_ALEN);
+    std::memmove(eth_header.h_dest, dest_mac.data(), ETH_ALEN);
+    std::memmove(eth_header.h_source, source_macadd.data(), ETH_ALEN);
     eth_header.h_proto = htons(CUSTOM_ETHERTYPE);  // Custom EtherType
 
     memset(&socket_addr, 0, sizeof(socket_addr));
     socket_addr.sll_ifindex = ifr.ifr_ifindex;
     socket_addr.sll_halen = ETH_ALEN;
-    memcpy(socket_addr.sll_addr, dest_mac.data(), dest_mac.size());
+    std::memmove(socket_addr.sll_addr, dest_mac.data(), dest_mac.size());
 
     return true;
 }
@@ -172,7 +172,7 @@ bool RawSocket :: getTargetMacAddress() {
     std::string payload = "MAC_REQUEST";
     std::vector<uint8_t>frame(sizeof(eth_header) + payload.size());
 
-    memcpy(frame.data(), &eth_header, sizeof(eth_header));
+    std::memmove(frame.data(), &eth_header, sizeof(eth_header));
     frame.insert(frame.end(), payload.begin(), payload.end());
 
     sendMacaddRequest(frame, socket_addr);
@@ -198,7 +198,7 @@ bool RawSocket :: getTargetMacAddress() {
         // Check if this is our custom EtherType response
         auto *recv_eth = reinterpret_cast<ethhdr *>(recv_buf);
         if (ntohs(recv_eth->h_proto) == CUSTOM_ETHERTYPE) {
-            memcpy(dest_macadd.data(), recv_eth->h_source, ETH_ALEN);
+            std::memmove(dest_macadd.data(), recv_eth->h_source, ETH_ALEN);
             printf("Received response from MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
                       dest_macadd[0], dest_macadd[1], dest_macadd[2],
                       dest_macadd[3], dest_macadd[4], dest_macadd[5]
