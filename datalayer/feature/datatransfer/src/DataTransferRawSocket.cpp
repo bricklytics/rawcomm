@@ -105,7 +105,10 @@ std::vector<uint8_t> DataTransferRawSocket::receiveData() {
     );
 
     if (bytes_received < 0) {
-        perror("Packet receiving failed");
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+            std::cerr << "Timeout!" << std::endl;
+        else
+            std::cerr << "Packet receiving failed" << std::endl;
         buffer.clear();
         return buffer;
     }
