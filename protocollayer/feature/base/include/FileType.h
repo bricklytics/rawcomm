@@ -1,0 +1,30 @@
+//
+// Created by julio-martins on 5/18/25.
+//
+
+#ifndef FILETYPE_H
+#define FILETYPE_H
+
+#include <cstdint>
+
+#define FILE_SIZE_MAX 63
+class FileUtils {
+public:
+    enum class FileType: uint8_t {
+        TEXT = 0x01,
+        IMAGE = 0x02,
+        VIDEO = 0x03,
+        UNKNOWN = 0x00
+    };
+
+    static uint8_t toUint8(FileType type) {
+        switch (type) {
+            case FileType::TEXT: return 0x01;
+            case FileType::IMAGE: return 0x02;
+            case FileType::VIDEO: return 0x03;
+            default: return 0x00;
+        }
+    }
+};
+
+#endif //FILETYPE_H
