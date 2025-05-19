@@ -127,7 +127,7 @@ std::pair<std::string, uint8_t> KermitProtocol::getFileInfo() const {
 
 bool KermitProtocol::receiveFile(const std::string &filePath) {
     std::ofstream oFile;
-    std::string defaultFilePath = !filePath.empty() ? filePath : "./treasure/";
+    std::string defaultFilePath = !filePath.empty() ? filePath : "./objetos/";
 
     //Get the name and size of incoming file
     std::pair fileInfo = getFileInfo();
