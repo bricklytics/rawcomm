@@ -5,7 +5,6 @@
 #ifndef KERMITPROTOCOL_H
 #define KERMITPROTOCOL_H
 
-#include <cstdint>
 #include <vector>
 #include <string>
 #include "../../../../flowcontrollayer/feature/stopandwait/include/StopAndWaitController.h"
@@ -15,9 +14,10 @@
 class KermitProtocol : public IBaseProtocol {
     IFlowController *controller;
 
-    static std::string getFileName(uint8_t type);
-    bool sendFileInfo(FileUtils::FileType type, const std::string& filePath) const;
-    std::pair<std::string, uint8_t> getFileInfo() const;
+    long fileSize = 0L;
+    long bytesDownloaded = 0L;
+
+    bool sendFileInfo(FileUtils::FileType type, const std::string &filePath) const;
 
 public:
     KermitProtocol();
@@ -30,14 +30,14 @@ public:
      * @param data The data chunk to be sent.
      * @return True if the message was sent successfully, false otherwise.
      */
-    bool sendMsg(PacketUtils::PacketType type, const std::vector<uint8_t>& data) override;
+    bool sendMsg(PacketUtils::PacketType type, const std::vector<uint8_t> &data) override;
 
     /**
      * Send a file over Kermit protocol.
      * @param filePath The path to the file to be sent.
      * @return  True if the file was sent successfully, false otherwise.
      */
-    bool sendFile(FileUtils::FileType type, const std::string& filePath) override;
+    bool sendFile(FileUtils::FileType type, const std::string &filePath) override;
 
     /**
      * Receive a array of bytes over Kermit protocol.
@@ -48,9 +48,9 @@ public:
     /**
      * Receive a file over Kermit protocol.
      * If path not provided, the file will be saved in the current directory. Always override.
-     * @param filePath The path to save the received file.
+     * @param type The type of the file to be received.
      * @return The received data chunk.
      */
-    bool receiveFile(const std::string& filePath) override;
+    bool receiveFile(std::vector<uint8_t> fileName) override;
 };
 #endif //KERMITPROTOCOL_H
