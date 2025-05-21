@@ -19,10 +19,10 @@ public:
 
     static uint8_t toUint8(FileType type) {
         switch (type) {
-            case FileType::TEXT: return 0x01;
-            case FileType::IMAGE: return 0x02;
-            case FileType::VIDEO: return 0x03;
-            default: return 0x00;
+            case FileType::TEXT: return 0x06;
+            case FileType::VIDEO: return 0x07;
+            case FileType::IMAGE: return 0x08;
+            default: return 0x0F; //Error type
         }
     }
 
