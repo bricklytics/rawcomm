@@ -8,6 +8,7 @@ CXXFLAGS = -g -std=c++17 -Wall -Wextra -pedantic
 BUILD_DIR = build
 CLIENT_TARGET = client
 SERVER_TARGET = server
+LDFLAGS = -lncurses
 
 # Source dirs
 #LAYER_DIRS=$(shell ls -dC *layer/feature/*/src/)
@@ -69,7 +70,7 @@ $(CLIENT_TARGET): $(OBJS)
 $(BUILD_DIR)/%.o: %.cpp
 	@echo "Compiling $< -> $@"
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) $(INCLUDE_DIR) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(INCLUDE_DIR) $(LDFLAGS) -c $< -o $@
 
 # Clean up build files
 clean:
