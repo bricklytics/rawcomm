@@ -2,7 +2,9 @@
 // Created by julio-martins on 5/20/25.
 //
 
+#include <memory>
 #include "../include/ServerUiController.h"
+#include "../include/GridUtils.h"
 
 ServerUiController::ServerUiController(const std::string &interface) {
     this->transmitter = new DataTransferRawSocket(interface);
@@ -15,18 +17,43 @@ ServerUiController::~ServerUiController() {
     delete this->controller;
     delete this->transmitter;
 }
-bool ServerUiController::saveIncomingFile(std::vector<uint8_t> fileName) const {
-    return this->protocol->receiveFile(fileName);
+
+FileUtils::FileType ServerUiController::getFileType(const std::string &filePath) {
+    std::string command = "file --mime-type -b \"" + filePath + "\"";
+    std::array<char, 128> buffer;
+    std::string fileType;
+
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(command.c_str(), "r"), pclose);
+    if (!pipe) return FileUtils::FileType::UNKNOWN;
+
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        fileType += buffer.data();
+    }
+
+    size_t pos = fileType.find('/');
+    if (pos != std::string::npos) fileType = fileType.substr(0, pos);
+    else return FileUtils::FileType::UNKNOWN;
+
+    if (fileType == "text") {
+        return FileUtils::FileType::TEXT;
+    }
+    if (fileType == "video") {
+        return FileUtils::FileType::VIDEO;
+    }
+    if (fileType == "image") {
+        return FileUtils::FileType::IMAGE;
+    }
+    return FileUtils::FileType::UNKNOWN;
+}
+
+bool ServerUiController::sendFile(const std::string &filePath) const {
+    auto fileType = getFileType(filePath);
+    return this->protocol->sendFile(fileType, filePath);
 }
 
 void ServerUiController::listen() {
     auto msg = protocol->receiveMsg();
     if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::MOVE_DATA)) {
-        auto move = GridUtils::toInt(msg[0]); // Convert to ncurses key from byte
-        moveObserver.post(move);
-    } else if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::TEXT_ACK_NOME) ||
-               this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::MEDIA_ACK_NOME) ||
-               this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::IMAGE_ACK_NOME)) {
-        fileObserver.post(msg);
+        moveObserver.post(GridUtils::toInt(msg[0])); // Convert to ncurses key from byte
     }
 }
