@@ -7,6 +7,8 @@
 #include <ctime>
 #include <set>
 #include <iostream>
+#include <unordered_map>
+
 #include "../include/GridUtils.h"
 #include "../include/ServerUiController.h"
 
@@ -15,7 +17,22 @@ int wrap(int value, int max) {
     return (value % max + max) % max;
 }
 
-void drawGrid(const Position& player, const std::set<Position>& treasures, const std::vector<Position>& log) {
+// Generate random unique treasures with file paths
+std::unordered_map<Position, std::string> generateTreasures(int count) {
+    std::unordered_map<Position, std::string> treasures;
+    while (treasures.size() < count) {
+        Position p{rand() % GRID_SIZE, rand() % GRID_SIZE};
+        if (treasures.find(p) == treasures.end()) {
+            treasures[p] = "./objetos/" + std::to_string(treasures.size() + 1);
+        }
+    }
+    return treasures;
+}
+
+void drawGrid(const Position &player,
+              const std::unordered_map<Position, std::string> &treasures,
+              const std::vector<Position> &log,
+              const std::string &lastMessage) {
     clear();
     mvprintw(0, 0, "Use arrow keys to move. Press 'q' to quit.");
 
@@ -45,20 +62,14 @@ void drawGrid(const Position& player, const std::set<Position>& treasures, const
         if (logIndex < log.size()) {
             mvprintw(GRID_SIZE + 4 + i, 0, "Step %2d: (%d, %d)   ", logIndex + 1, log[logIndex].x, log[logIndex].y);
         } else {
-            mvprintw(GRID_SIZE + 4 + i, 0, "                    "); // Clear leftover lines
+            mvprintw(GRID_SIZE + 4 + i, 0, "                         ");
         }
     }
 
-    refresh();
-}
+    // Display latest message
+    mvprintw(GRID_SIZE + LOG_SIZE + 5, 0, "Message: %-80s", lastMessage.c_str());
 
-std::set<Position> generateTreasures(int count) {
-    std::set<Position> treasures;
-    while (treasures.size() < count) {
-        Position p{rand() % GRID_SIZE, rand() % GRID_SIZE};
-        treasures.insert(p);
-    }
-    return treasures;
+    refresh();
 }
 
 int main() {
@@ -70,7 +81,8 @@ int main() {
 
     Position player{0, 0};
     std::vector moveLog = {player};
-    std::set<Position> treasures = generateTreasures(8);
+    std::unordered_map<Position, std::string> treasures = generateTreasures(8);
+    std::string lastMessage = "";
 
     std::string interface;
     std::cout << "Enter the network interface (e.g., lo, eth0): ";
@@ -79,17 +91,17 @@ int main() {
     int ch;
     ServerUiController serverUiController(interface);
 
-    serverUiController.moveObserver.observe([&ch] (int move){
+    serverUiController.moveObserver.observe([&ch](int move) {
         ch = move;
     });
 
-    serverUiController.fileObserver.observe( [&serverUiController](std::vector<uint8_t> fileName){
-        if (serverUiController.saveIncomingFile(fileName)) {
-            std::cerr << "File received successfully." << std::endl;
+    serverUiController.fileObserver.observe([&serverUiController](std::string fileName) {
+        if (!serverUiController.sendFile(fileName)) {
+            std::cerr << "Failed to receive file." << std::endl;
         }
     });
 
-    drawGrid(player, treasures, moveLog);
+    drawGrid(player, treasures, moveLog, lastMessage);
     while (ch != 'q') {
         serverUiController.listen();
         switch (ch) {
@@ -101,10 +113,19 @@ int main() {
         }
 
         moveLog.push_back(player);
-        drawGrid(player, treasures, moveLog);
         if (moveLog.size() > LOG_SIZE) {
             moveLog.erase(moveLog.begin());
         }
+
+        auto found = treasures.find(player);
+        if (found != treasures.end()) {
+            lastMessage = "Treasure found. Sending file " + found->second + " to client...";
+            drawGrid(player, treasures, moveLog, lastMessage);
+
+            serverUiController.fileObserver.post(found->second);
+            treasures.erase(found); // only trigger once
+        }
+        drawGrid(player, treasures, moveLog, lastMessage);
     }
 
     endwin();
