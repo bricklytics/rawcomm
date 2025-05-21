@@ -22,7 +22,7 @@ bool ServerUiController::saveIncomingFile(std::vector<uint8_t> fileName) const {
 void ServerUiController::listen() {
     auto msg = protocol->receiveMsg();
     if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::MOVE_DATA)) {
-        auto move = GridUtils::toInt(msg[0]);
+        auto move = GridUtils::toInt(msg[0]); // Convert to ncurses key from byte
         moveObserver.post(move);
     } else if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::TEXT_ACK_NOME) ||
                this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::MEDIA_ACK_NOME) ||
