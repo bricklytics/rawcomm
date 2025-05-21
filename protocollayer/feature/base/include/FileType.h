@@ -25,6 +25,15 @@ public:
             default: return 0x00;
         }
     }
+
+    static FileType toFileType(uint8_t type) {
+        switch (PacketUtils::toPacketType(type)) {
+            case PacketUtils::PacketType::TEXT_ACK_NOME: return FileType::TEXT;
+            case PacketUtils::PacketType::IMAGE_ACK_NOME: return FileType::IMAGE;
+            case PacketUtils::PacketType::MEDIA_ACK_NOME: return FileType::VIDEO;
+            default: return FileType::UNKNOWN;
+        }
+    }
 };
 
 #endif //FILETYPE_H
