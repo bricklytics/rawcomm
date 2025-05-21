@@ -28,6 +28,7 @@ StopAndWaitController::StopAndWaitController(IBaseSocket *transmitter) {
 
 StopAndWaitController::~StopAndWaitController() {
     delete errorControlStrategy;
+    delete transmitter;
 }
 
 bool StopAndWaitController::dispatch(const std::vector<uint8_t> &data) {
