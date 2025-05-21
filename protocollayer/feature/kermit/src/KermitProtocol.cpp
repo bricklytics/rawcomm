@@ -7,6 +7,8 @@
 
 #include <filesystem>
 
+#include "../../../../presentationlayer/feature/server/include/GridUtils.h"
+
 KermitProtocol::KermitProtocol() {
     this->controller = new StopAndWaitController();
 }
@@ -39,8 +41,12 @@ bool KermitProtocol::sendFileInfo(FileUtils::FileType type, const std::string &f
     //send file size
     auto fileSize = std::filesystem::file_size(inputFilePath);
     this->controller->packet_type = PacketUtils::toUint8(PacketUtils::PacketType::SIZE);
+
     packet.clear();
-    packet.push_back(fileSize > FILE_SIZE_MAX ? FILE_SIZE_MAX : fileSize);
+    auto value = fileSize > FILE_SIZE_MAX ? FILE_SIZE_MAX : fileSize;
+    for (size_t i = 0; i < sizeof(unsigned long); ++i) {
+        packet.push_back(static_cast<uint8_t>((value >> (8 * i)) & 0xFF));
+    }
 
     if (!controller->dispatch(packet)) return false;
 
@@ -84,76 +90,46 @@ bool KermitProtocol::sendFile(FileUtils::FileType type, const std::string &fileP
     return true;
 }
 
-std::string KermitProtocol::getFileName(uint8_t type) {
-    switch (type) {
-        case PacketUtils::PacketType::TEXT_ACK_NOME:
-            return "text_file.txt";
-        case PacketUtils::PacketType::MEDIA_ACK_NOME:
-            return "media_file.mp4";
-        case PacketUtils::PacketType::IMAGE_ACK_NOME:
-            return "image_file.jpg";
-        default:
-            return "unknown_file";
-    }
-}
+bool KermitProtocol::receiveFile(std::vector<uint8_t>  fileName) {
+    std::ofstream oFile;
+    std::string defaultFilePath = "./objetos/";
 
-std::pair<std::string, uint8_t> KermitProtocol::getFileInfo() const {
-    std::pair<std::string, std::uint8_t> fileInfo;
-
-    auto packet_data = controller->receive();
-    if (packet_data.empty()) {
-        std::cerr << "Failed to receive file info packet" << std::endl;
-        return {};
-    }
-
-    if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::TEXT_ACK_NOME) ||
-        this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::MEDIA_ACK_NOME) ||
-        this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::IMAGE_ACK_NOME)) {
-        fileInfo.first = std::string(packet_data.begin(), packet_data.end());
-    }
-
-    packet_data = controller->receive();
-    if (packet_data.empty()) {
+    auto sizePacket = controller->receive();
+    if (sizePacket.empty()) {
         std::cerr << "Failed to receive file size packet" << std::endl;
-        return {};
+        return false;
     }
 
     if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::SIZE)) {
-        fileInfo.second = packet_data[0];
+        long fileSize = 0L;
+        size_t maxBytes = std::min(sizePacket.size(), sizeof(unsigned long));
+        for (size_t i = 0; i < maxBytes; ++i) {
+            fileSize |= static_cast<unsigned long>(sizePacket[i]) << (8 * i);
+        }
+        this->fileSize = fileSize;
     }
 
-    return fileInfo;
-}
-
-bool KermitProtocol::receiveFile(const std::string &filePath) {
-    std::ofstream oFile;
-    std::string defaultFilePath = !filePath.empty() ? filePath : "./objetos/";
-
-    //Get the name and size of incoming file
-    std::pair fileInfo = getFileInfo();
-
-    if (filePath.empty()) defaultFilePath.append(getFileName(controller->packet_type));
-    else defaultFilePath.append(fileInfo.first);
-
+    defaultFilePath.append(std::string(fileName.begin(), fileName.end()));
     oFile.open(defaultFilePath, std::ios_base::binary);
     if (!oFile.is_open()) {
-        std::cerr << "Failed to open file " << filePath << std::endl;
-        return {};
+        std::cerr << "Failed to open file " << defaultFilePath << std::endl;
+        return false;
     }
 
     bool isEndOfData = false, writeFailed = false;
     while (!isEndOfData) {
         auto packet_data = controller->receive();
-        isEndOfData = packet_data.empty();
+        isEndOfData = packet_data.empty(); //when file ending packet is received or timeout
 
-        if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::DATA)){
+        if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::DATA)) {
             oFile.write(reinterpret_cast<const char *>(packet_data.data()), packet_data.size());
             writeFailed = oFile.fail();
             if (writeFailed) {
-                std::cerr << "Failed to write to file " << filePath << std::endl;
+                std::cerr << "Failed to write to file " << defaultFilePath << std::endl;
                 break;
             }
         }
+        this->bytesDownloaded += packet_data.size();
     }
 
     oFile.close();
