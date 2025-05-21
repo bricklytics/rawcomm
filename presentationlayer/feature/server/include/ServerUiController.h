@@ -5,26 +5,26 @@
 #ifndef SERVERUICONTROLLER_H
 #define SERVERUICONTROLLER_H
 
-#include "GridUtils.h"
 #include "../../../../datalayer/feature/datatransfer/include/DataTransferRawSocket.h"
 #include "../../../../flowcontrollayer/feature/stopandwait/include/StopAndWaitController.h"
 #include "../../../../protocollayer/feature/kermit/include/KermitProtocol.h"
-#include "../../base/observer/include/DataObserver.h"
+#include "../../observer/include/DataObserver.h"
 
 class ServerUiController {
     DataTransferRawSocket *transmitter;
     StopAndWaitController *controller;
     KermitProtocol *protocol;
 
+    static FileUtils::FileType getFileType(const std::string &filePath);
 public:
     DataObserver<int> moveObserver;
-    DataObserver<std::vector<uint8_t>> fileObserver;
+    DataObserver<std::string> fileObserver;
 
     ServerUiController(const std::string &interface);
     ~ServerUiController();
 
     void listen();
-    bool saveIncomingFile(std::vector<uint8_t>) const;
+    bool sendFile(const std::string &filePath) const;
 };
 
 #endif //SERVERUICONTROLLER_H
