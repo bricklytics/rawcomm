@@ -2,12 +2,13 @@
 // Created by julio-martins on 5/19/25.
 //
 
-#include <ncurses.h>
 #include <vector>
 #include <cstdlib>
 #include <ctime>
 #include <set>
+#include <iostream>
 #include "../include/GridUtils.h"
+#include "../include/ServerUiController.h"
 
 
 int wrap(int value, int max) {
@@ -68,13 +69,29 @@ int main() {
     curs_set(0);
 
     Position player{0, 0};
-    std::vector<Position> movementLog = {player};
+    std::vector moveLog = {player};
     std::set<Position> treasures = generateTreasures(8);
 
-    drawGrid(player, treasures, movementLog);
+    std::string interface;
+    std::cout << "Enter the network interface (e.g., lo, eth0): ";
+    std::cin >> interface;
 
     int ch;
-    while ((ch = getch()) != 'q') {
+    ServerUiController serverUiController(interface);
+
+    serverUiController.moveObserver.observe([&ch] (int move){
+        ch = move;
+    });
+
+    serverUiController.fileObserver.observe( [&serverUiController](std::vector<uint8_t> fileName){
+        if (serverUiController.saveIncomingFile(fileName)) {
+            std::cerr << "File received successfully." << std::endl;
+        }
+    });
+
+    drawGrid(player, treasures, moveLog);
+    while (ch != 'q') {
+        serverUiController.listen();
         switch (ch) {
             case KEY_UP:    player.y = wrap(player.y - 1, GRID_SIZE); break;
             case KEY_DOWN:  player.y = wrap(player.y + 1, GRID_SIZE); break;
@@ -83,8 +100,11 @@ int main() {
             default: continue;
         }
 
-        movementLog.push_back(player);  // Log after moving - must erase first itens when log reach LOG_SIZE
-        drawGrid(player, treasures, movementLog);
+        moveLog.push_back(player);
+        drawGrid(player, treasures, moveLog);
+        if (moveLog.size() > LOG_SIZE) {
+            moveLog.erase(moveLog.begin());
+        }
     }
 
     endwin();
