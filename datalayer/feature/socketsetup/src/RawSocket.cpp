@@ -6,6 +6,7 @@
 
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <netinet/if_ether.h>
 #include <net/if.h>
@@ -15,12 +16,13 @@
 #include <chrono>
 #include <thread>
 #include <utility>
+#include <sys/poll.h>
 
 RawSocket::RawSocket(std::string interface) : interface_name(std::move(interface)) {
     source_macadd = std::vector<uint8_t>(6);
     dest_macadd = std::vector<uint8_t>(6);
     memset(&socket_address, 0, sizeof(sockaddr_ll));
-
+    timeout = 0;
     // Create a raw socket
     sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 }
@@ -85,20 +87,16 @@ bool RawSocket :: bindSocket() {
         return false;
     }
 
+    // Set the socket to non-blocking mode
+    int flags = fcntl(sockfd, F_GETFL, 0);
+    fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);
+
     std::cout << "Socket bound to interface: " << interface_name << std::endl;
     return true;
 }
 
-void RawSocket::setTimeout(int seconds, int microseconds) const {
-    timeval timeout{};
-    timeout.tv_sec = seconds;
-    timeout.tv_usec = microseconds;
-
-    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
-        perror("Failed to set socket timeout");
-    } else {
-        std::cout << "Socket timeout set to " << seconds << "s " << microseconds << "μs" << std::endl;
-    }
+void RawSocket::setTimeout(int seconds) {
+    timeout = seconds;
 }
 
 bool RawSocket :: getSourceMacAddress() {
@@ -182,28 +180,35 @@ bool RawSocket :: getTargetMacAddress() {
     uint8_t recv_buf[1024];
     auto retries = 0;
     while (true) {
-        ssize_t recv_len = recv(sockfd, recv_buf, sizeof(recv_buf), 0);
-        if (recv_len <= 0) {
-            perror("Failed to receive response! Retrying...");
-            std::this_thread::sleep_for(std::chrono::milliseconds(500));
-            retries++;
-            if (retries > RETRIES) {
-                std::cerr << "Failed to establish connection after " << RETRIES << " retries." << std::endl;
-                return false;
-            }
-            continue;
-        }
-        sendMacaddRequest(frame, socket_addr);
+        pollfd readfds{};
+        readfds.fd = sockfd;
+        readfds.events = POLLIN;
 
-        // Check if this is our custom EtherType response
-        auto *recv_eth = reinterpret_cast<ethhdr *>(recv_buf);
-        if (ntohs(recv_eth->h_proto) == CUSTOM_ETHERTYPE) {
-            std::memmove(dest_macadd.data(), recv_eth->h_source, ETH_ALEN);
-            printf("Received response from MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                      dest_macadd[0], dest_macadd[1], dest_macadd[2],
-                      dest_macadd[3], dest_macadd[4], dest_macadd[5]
-            );
-            break;
+        auto ready = poll(&readfds, 1, timeout*1000);
+        if (ready > 0 && readfds.revents & POLLIN ) {
+            ssize_t recv_len = recv(sockfd, recv_buf, sizeof(recv_buf), 0);
+            if (recv_len <= 0) {
+                perror("Failed to receive response! Retrying...");
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                retries++;
+                if (retries > RETRIES) {
+                    std::cerr << "Failed to establish connection after " << RETRIES << " retries." << std::endl;
+                    return false;
+                }
+                continue;
+            }
+            sendMacaddRequest(frame, socket_addr);
+
+            // Check if this is our custom EtherType response
+            auto *recv_eth = reinterpret_cast<ethhdr *>(recv_buf);
+            if (ntohs(recv_eth->h_proto) == CUSTOM_ETHERTYPE) {
+                std::memmove(dest_macadd.data(), recv_eth->h_source, ETH_ALEN);
+                printf("Received response from MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
+                       dest_macadd[0], dest_macadd[1], dest_macadd[2],
+                       dest_macadd[3], dest_macadd[4], dest_macadd[5]
+                );
+                break;
+            }
         }
     }
     return true;
