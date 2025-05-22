@@ -10,6 +10,8 @@
 
 class IBaseSocket {
 public:
+    bool hasTimeout = false;
+
     virtual ~IBaseSocket() = default;
 
     virtual bool openSocket() = 0;
