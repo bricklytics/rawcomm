@@ -62,7 +62,7 @@ bool StopAndWaitController::dispatch(const std::vector<uint8_t> &data) {
         if (transmitter->sendData(packet))
             hasSucceeded = waitForAck(header.seq_num); // Block until ACK/NACK is received
 
-        if (retries >= RETRIES) return hasSucceeded;
+        if (retries > RETRIES) return hasSucceeded;
         retries++;
     } while (!hasSucceeded);
 
@@ -115,7 +115,7 @@ bool StopAndWaitController::waitForAck(uint8_t seq_num) const {
         auto pckt = transmitter->receiveData();
 
         if (pckt.empty()) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) break; //timeout
+            if (transmitter->hasTimeout) break;
             continue;
         }
         if (pckt[0] != START_MARK) continue;
