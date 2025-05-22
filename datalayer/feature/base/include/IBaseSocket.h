@@ -13,7 +13,7 @@ public:
     virtual ~IBaseSocket() = default;
 
     virtual bool openSocket() = 0;
-    virtual void setTimeout(int seconds, int microseconds) = 0;
+    virtual void setTimeout(int seconds) = 0;
     virtual bool sendData(const std::vector<uint8_t>& data) = 0;
     virtual std::vector<uint8_t> receiveData() = 0;
 };

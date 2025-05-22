@@ -10,6 +10,8 @@ DataTransferRawSocket::DataTransferRawSocket(
     std::string interface
 ) : interface_name(std::move(interface)) {
     rawSocket = nullptr;
+    readfds = {};
+    timeout = 0;
     source_macadd = std::vector<uint8_t>(6);
     dest_macadd = std::vector<uint8_t>(6);
 }
@@ -58,8 +60,9 @@ bool DataTransferRawSocket::openSocket() {
     return true;
 }
 
-void DataTransferRawSocket::setTimeout(int seconds, int microseconds) {
-    rawSocket->setTimeout(seconds, microseconds);
+void DataTransferRawSocket::setTimeout(int seconds) {
+    timeout = seconds;
+    rawSocket->setTimeout(seconds);
 }
 
 bool DataTransferRawSocket::sendData(const std::vector<uint8_t> &payload) {
@@ -93,24 +96,37 @@ bool DataTransferRawSocket::sendData(const std::vector<uint8_t> &payload) {
     return true;
 }
 
-std::vector<uint8_t> DataTransferRawSocket::receiveData() {
-    auto buffer = std::vector<uint8_t>(PACKET_SIZE);
-    auto bytes_received = recvfrom(
-        rawSocket->getSocket(),
-        buffer.data(),
-        buffer.size(),
-        0,
-        nullptr,
-        nullptr
-    );
+int DataTransferRawSocket::listenSocket() {
+    readfds.fd = rawSocket->getSocket();
+    readfds.events = POLLIN;
 
-    if (bytes_received < 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK)
-            std::cerr << "Timeout!" << std::endl;
-        else
-            std::cerr << "Packet receiving failed" << std::endl;
+    return poll(&readfds, 1, timeout*1000);
+}
+
+std::vector<uint8_t> DataTransferRawSocket::receiveData() {
+     auto ready = listenSocket();
+    auto buffer = std::vector<uint8_t>(PACKET_SIZE);
+    if (ready == 0) {
+        std::cerr << "Timeout!" << std::endl;
         buffer.clear();
         return buffer;
+    }
+
+    if (ready > 0 && readfds.revents & POLLIN) {
+        auto bytes_received = recvfrom(
+            rawSocket->getSocket(),
+            buffer.data(),
+            buffer.size(),
+            0,
+            nullptr,
+            nullptr
+        );
+
+        if (bytes_received < 0) {
+            std::cerr << "Packet receiving failed" << std::endl;
+            buffer.clear();
+            return buffer;
+        }
     }
 
     ethhdr eth_header{};
@@ -125,6 +141,5 @@ std::vector<uint8_t> DataTransferRawSocket::receiveData() {
     }
 
     std::vector payload(buffer.begin() + sizeof(eth_header), buffer.end());
-    std::cout << "Packet received! Bytes: " << bytes_received << std::endl;
     return payload;
 }
