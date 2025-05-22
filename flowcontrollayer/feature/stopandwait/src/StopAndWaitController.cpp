@@ -9,14 +9,6 @@
 #include "../include/StopAndWaitController.h"
 #include "../../base/include/PacketType.h"
 
-StopAndWaitController::StopAndWaitController() {
-    this->errorControlStrategy = new ChecksumStrategy();
-    this->transmitter = new DataTransferRawSocket("lo"); // Use loopback interface as default
-    this->transmitter->setTimeout(TIMEOUT_SECONDS); // Set timeout for receiving
-    this->packet_type = PacketUtils::toUint8(PacketUtils::PacketType::ACK);
-    this->current_seq = 0xFF;
-}
-
 StopAndWaitController::StopAndWaitController(IBaseSocket *transmitter) {
     this->errorControlStrategy = new ChecksumStrategy();
     this->transmitter = transmitter; // Use loopback interface as default
@@ -27,7 +19,6 @@ StopAndWaitController::StopAndWaitController(IBaseSocket *transmitter) {
 
 StopAndWaitController::~StopAndWaitController() {
     delete errorControlStrategy;
-    delete transmitter;
 }
 
 bool StopAndWaitController::dispatch(const std::vector<uint8_t> &data) {

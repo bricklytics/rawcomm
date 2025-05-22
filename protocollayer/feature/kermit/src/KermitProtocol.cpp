@@ -7,16 +7,9 @@
 #include "../include/KermitProtocol.h"
 #include "../../../../presentationlayer/feature/server/include/GridUtils.h"
 
-KermitProtocol::KermitProtocol() {
-    this->controller = new StopAndWaitController();
-}
 
 KermitProtocol::KermitProtocol(IFlowController *controller) {
     this->controller = controller;
-}
-
-KermitProtocol::~KermitProtocol() {
-    delete controller;
 }
 
 bool KermitProtocol::sendMsg(PacketUtils::PacketType type, const std::vector<uint8_t> &data) {

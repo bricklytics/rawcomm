@@ -17,7 +17,7 @@
  *  Also it handles the retransmission of packets in case of loss or corruption.
  *  It applies the ChecksumStrategy to ensure data integrity.
  */
-class StopAndWaitController : public IFlowController {
+class StopAndWaitController final : public IFlowController {
 
     IBaseSocket *transmitter;
     IErrorControlStrategy *errorControlStrategy;
@@ -32,8 +32,6 @@ class StopAndWaitController : public IFlowController {
     static PacketUtils::PacketHeader deserializeHeader(const std::vector<uint8_t>& buffer);
 
 public:
-
-    StopAndWaitController();
     StopAndWaitController(IBaseSocket *transmitter);
 
     ~StopAndWaitController() override;

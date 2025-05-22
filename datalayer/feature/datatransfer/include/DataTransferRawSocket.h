@@ -15,7 +15,7 @@
 #define TIMEOUT_SECONDS 10
 #define CUSTOM_ETHERTYPE 0x88b5
 
-class DataTransferRawSocket : public IBaseSocket{
+class DataTransferRawSocket final : public IBaseSocket{
     RawSocket *rawSocket;
     pollfd readfds{};
     int timeout;

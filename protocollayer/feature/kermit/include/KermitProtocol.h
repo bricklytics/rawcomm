@@ -12,7 +12,7 @@
 #include "../../../../flowcontrollayer/feature/base/include/PacketType.h"
 #include "../../base/include/IBaseProtocol.h"
 
-class KermitProtocol : public IBaseProtocol {
+class KermitProtocol final : public IBaseProtocol {
     IFlowController *controller;
 
     long fileSize = 0L;
@@ -21,9 +21,8 @@ class KermitProtocol : public IBaseProtocol {
     bool sendFileInfo(FileUtils::FileType type, const std::string &filePath) const;
 
 public:
-    KermitProtocol();
     KermitProtocol(IFlowController *controller);
-    ~KermitProtocol() override;
+    ~KermitProtocol() override = default;
 
     /**
      * Send a array of bytes over Kermit protocol.
