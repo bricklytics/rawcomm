@@ -12,6 +12,7 @@ DataTransferRawSocket::DataTransferRawSocket(
     rawSocket = nullptr;
     readfds = {};
     timeout = 0;
+    hasTimeout = false;
     source_macadd = std::vector<uint8_t>(6);
     dest_macadd = std::vector<uint8_t>(6);
 }
@@ -79,6 +80,7 @@ bool DataTransferRawSocket::sendData(const std::vector<uint8_t> &payload) {
     memcpy(&socket_address, rawSocket->getSockaddr(), sizeof(socket_address));
 
     // Send the packet
+    hasTimeout = false;
     auto isSent = sendto(
         rawSocket->getSocket(),
         buffer.data(),
@@ -107,7 +109,9 @@ std::vector<uint8_t> DataTransferRawSocket::receiveData() {
      auto ready = listenSocket();
     auto buffer = std::vector<uint8_t>(PACKET_SIZE);
     if (ready == 0) {
+        hasTimeout = true;
         std::cerr << "Timeout!" << std::endl;
+
         buffer.clear();
         return buffer;
     }

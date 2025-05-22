@@ -25,6 +25,7 @@ class DataTransferRawSocket : public IBaseSocket{
 
     bool syncCommChannel();
     int listenSocket();
+
 public:
     explicit DataTransferRawSocket(std::string  interface);
     ~DataTransferRawSocket() override;
