@@ -2,18 +2,17 @@
 // Created by julio-martins on 5/1/25.
 //
 
-#include "../include/StopAndWaitController.h"
-
 #include <cstring>
 #include <iostream>
-#include <thread>
 
 #include "../../../../datalayer/feature/datatransfer/include/DataTransferRawSocket.h"
+#include "../include/StopAndWaitController.h"
+#include "../../base/include/PacketType.h"
 
 StopAndWaitController::StopAndWaitController() {
     this->errorControlStrategy = new ChecksumStrategy();
     this->transmitter = new DataTransferRawSocket("lo"); // Use loopback interface as default
-    this->transmitter->setTimeout(TIMEOUT_SECONDS, 0); // Set timeout for receiving
+    this->transmitter->setTimeout(TIMEOUT_SECONDS); // Set timeout for receiving
     this->packet_type = PacketUtils::toUint8(PacketUtils::PacketType::ACK);
     this->current_seq = 0xFF;
 }
@@ -21,7 +20,7 @@ StopAndWaitController::StopAndWaitController() {
 StopAndWaitController::StopAndWaitController(IBaseSocket *transmitter) {
     this->errorControlStrategy = new ChecksumStrategy();
     this->transmitter = transmitter; // Use loopback interface as default
-    this->transmitter->setTimeout(TIMEOUT_SECONDS, 0); // Set timeout for receiving
+    this->transmitter->setTimeout(TIMEOUT_SECONDS); // Set timeout for receiving
     this->packet_type = PacketUtils::toUint8(PacketUtils::PacketType::ACK);
     this->current_seq = 0xFF;
 }
