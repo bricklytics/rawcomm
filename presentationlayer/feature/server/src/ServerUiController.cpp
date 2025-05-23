@@ -8,6 +8,9 @@
 
 ServerUiController::ServerUiController(const std::string &interface) {
     this->transmitter = new DataTransferRawSocket(interface);
+    if (!this->transmitter->openSocket()) {
+        throw std::runtime_error("Socket creation failed");
+    }
     this->controller = new StopAndWaitController(transmitter);
     this->protocol = new KermitProtocol(controller);
 }
@@ -48,6 +51,16 @@ FileUtils::FileType ServerUiController::getFileType(const std::string &filePath)
 
 bool ServerUiController::sendFile(const std::string &filePath) const {
     auto fileType = getFileType(filePath);
+    std::string fullName = filePath;
+    switch (fileType) {
+        case FileUtils::FileType::TEXT: fullName.append(".txt");
+            break;
+        case FileUtils::FileType::IMAGE: fullName.append(".jpg");
+            break;
+        case FileUtils::FileType::VIDEO: fullName.append(".mp4");
+            break;
+        default: return false;
+    }
     return this->protocol->sendFile(fileType, filePath);
 }
 

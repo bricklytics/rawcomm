@@ -2,13 +2,17 @@
 // Created by julio-martins on 5/19/25.
 //
 
+#ifdef SERVER
 #include <vector>
 #include <cstdlib>
 #include <ctime>
 #include <set>
 #include <iostream>
+#include <list>
 #include <unordered_map>
+#include <filesystem>
 
+#include "LogUtils.h"
 #include "../include/GridUtils.h"
 #include "../include/ServerUiController.h"
 
@@ -17,13 +21,32 @@ int wrap(int value, int max) {
     return (value % max + max) % max;
 }
 
+std::list<std::string> getFiles() {
+    std::string path = "./objetos/";
+    std::list<std::string> files = {};
+
+    try {
+        for (const auto& entry : std::filesystem::directory_iterator(path)) {
+            if (entry.is_regular_file()) {
+                files.push_back(entry.path().filename());
+            }
+        }
+    } catch (const std::filesystem::filesystem_error& e) {
+        throw std::runtime_error("Filesystem error: " + std::string(e.what()));
+    }
+    return files;
+}
+
 // Generate random unique treasures with file paths
 std::unordered_map<Position, std::string> generateTreasures(int count) {
     std::unordered_map<Position, std::string> treasures;
+    auto files = getFiles();
     while (treasures.size() < count) {
         Position p{rand() % GRID_SIZE, rand() % GRID_SIZE};
         if (treasures.find(p) == treasures.end()) {
-            treasures[p] = "./objetos/" + std::to_string(treasures.size() + 1);
+            treasures[p] = "./objetos/" + files.front();
+            std::cout << treasures[p] << std::endl;
+            files.pop_front();
         }
     }
     return treasures;
@@ -81,15 +104,17 @@ int main() {
 
     Position player{0, 0};
     std::vector moveLog = {player};
-    std::unordered_map<Position, std::string> treasures = generateTreasures(8);
+    std::unordered_map<Position, std::string> treasures = generateTreasures(GRID_SIZE);
     std::string lastMessage = "";
 
-    std::string interface;
-    std::cout << "Enter the network interface (e.g., lo, eth0): ";
-    std::cin >> interface;
+    std::string interface = "veth0";
+    // std::cout << "Enter the network interface (e.g., lo, eth0): ";
+    // std::cin >> interface;
 
     int ch;
     ServerUiController serverUiController(interface);
+    LogUtils logger = LogUtils("server.log");
+    logger.start();
 
     serverUiController.moveObserver.observe([&ch](int move) {
         ch = move;
@@ -97,7 +122,7 @@ int main() {
 
     serverUiController.fileObserver.observe([&serverUiController](std::string fileName) {
         if (!serverUiController.sendFile(fileName)) {
-            std::cerr << "Failed to receive file." << std::endl;
+            std::cerr << "Failed to send file." << std::endl;
         }
     });
 
@@ -127,7 +152,8 @@ int main() {
         }
         drawGrid(player, treasures, moveLog, lastMessage);
     }
-
+    logger.stop();
     endwin();
     return 0;
 }
+#endif
