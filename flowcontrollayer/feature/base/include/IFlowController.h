@@ -10,16 +10,13 @@
 
 class IFlowController {
 public:
+    uint8_t packet_type = 0x00;
+    uint8_t current_seq = 0xFF;
+
     virtual ~IFlowController() = default;
 
-    // Send data reliably (with retransmission and acknowledgment)
     virtual bool dispatch(const std::vector<uint8_t>& data) = 0;
-
-    // Receive a packet and handle it sending ACK/NACK
     virtual std::vector<uint8_t> receive() = 0;
-
-    // Notify the controller of delivery status (e.g., ACK or NACK)
     virtual void notify() = 0;
-
 };
 #endif //IFLOWCONTROLER_H

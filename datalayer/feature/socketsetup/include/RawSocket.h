@@ -17,6 +17,7 @@
 
 class RawSocket final {
     int sockfd;
+    int timeout;
     sockaddr_ll socket_address{};
     std::string interface_name;
     std::vector<uint8_t> source_macadd;
@@ -33,7 +34,7 @@ public:
 
     bool bindSocket();
 
-    void setTimeout(int seconds, int microseconds) const;
+    void setTimeout(int seconds);
 
     bool getSourceMacAddress();
 

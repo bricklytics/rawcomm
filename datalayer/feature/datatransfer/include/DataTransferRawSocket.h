@@ -8,19 +8,23 @@
 #include "../../base/include/IBaseSocket.h"
 #include "../../socketsetup/include/RawSocket.h"
 #include <iostream>
+#include <poll.h>
 
 #define PACKET_SIZE 1500
 #define RETRIES 3
 #define TIMEOUT_SECONDS 10
 #define CUSTOM_ETHERTYPE 0x88b5
 
-class DataTransferRawSocket : public IBaseSocket {
+class DataTransferRawSocket final : public IBaseSocket{
     RawSocket *rawSocket;
+    pollfd readfds{};
+    int timeout;
     std::string interface_name;
     std::vector<uint8_t> source_macadd;
     std::vector<uint8_t> dest_macadd;
 
     bool syncCommChannel();
+    int listenSocket();
 
 public:
     explicit DataTransferRawSocket(std::string  interface);
@@ -35,9 +39,8 @@ public:
     /**
      * Set the timeout for receiving data.
      * @param seconds Number of seconds for the timeout.
-     * @param microseconds Number of microseconds for the timeout.
      */
-    void setTimeout(int seconds, int microseconds) override;
+    void setTimeout(int seconds) override;
 
     /**
      * Send data over the socket.

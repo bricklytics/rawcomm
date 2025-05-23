@@ -1,21 +1,24 @@
 
 
-#include "DataTransferRawSocket.h"
 #include <thread>
 
-int main() {
-    std::string interface;
-    std::cout << "Enter the network interface (e.g., lo, eth0): ";
-    std::cin >> interface;
+#include "DataTransferRawSocket.h"
+#include "StopAndWaitController.h"
+#include "KermitProtocol.h"
+#include "PacketType.h"
 
+int main() {
     #ifdef CLIENT
-    DataTransferRawSocket sender(interface);
-    if (!sender.openSocket()) {
+    std::string interface = "veth1";
+    DataTransferRawSocket *sender = new DataTransferRawSocket(interface);
+    if (!sender->openSocket()) {
         return EXIT_FAILURE;
     }
     #elif SERVER
-    DataTransferRawSocket receiver(interface);
-    if (!receiver.openSocket()) {
+
+    std::string interface = "veth0";
+    DataTransferRawSocket *receiver = new DataTransferRawSocket(interface);
+    if (!receiver->openSocket()) {
         return EXIT_FAILURE;
     }
     #endif
@@ -25,6 +28,8 @@ int main() {
     auto counter = 0;
 
 #ifdef CLIENT
+    StopAndWaitController *controller = new StopAndWaitController(sender);
+    KermitProtocol kermitProtocol(controller);
     while (true) {
         std::cout << "Enter data to send: " << std::endl;
         std::cin >> upstream;
@@ -32,16 +37,19 @@ int main() {
 
         packetData.clear();
         packetData.insert(packetData.begin(), upstream.begin(), upstream.end());
-        sender.sendData(packetData);
+        kermitProtocol.sendFile(FileUtils::FileType::TEXT, "tesouros/1.txt");
         counter++;
         std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Reduce CPU usage
     }
 #endif
 #ifdef  SERVER
-    while (counter < RETRIES){
-        auto downStream = receiver.receiveData();
-        if (!downStream.empty()) {
-            std::cout << "Received Data: " << downStream.data() << std::endl;
+    StopAndWaitController *controller = new StopAndWaitController(receiver);
+    KermitProtocol kermitProtocol(controller);
+
+    while (counter <= RETRIES){
+        auto downStream = kermitProtocol.receiveFile(std::vector<uint8_t>(1,'1'));
+        if (downStream) {
+            std::cout << "Received Data: " << std::endl;
             counter = 0;
         }
         counter++;

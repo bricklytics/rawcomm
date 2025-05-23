@@ -8,6 +8,7 @@ CXXFLAGS = -g -std=c++17 -Wall -Wextra -pedantic
 BUILD_DIR = build
 CLIENT_TARGET = client
 SERVER_TARGET = server
+LDFLAGS = -lncurses -pthread
 
 # Source dirs
 #LAYER_DIRS=$(shell ls -dC *layer/feature/*/src/)
@@ -18,7 +19,7 @@ SRC_DIR=$(shell ls -dC *layer/feature/*/src/)
 $(info Sources Dir: $(SRC_DIR))
 
 # Source files
-SRCS=$(foreach srcs,$(SRC_DIR),$(wildcard ./$(srcs)/*.cpp)) ./app/src/main.cpp
+SRCS=$(foreach srcs,$(SRC_DIR),$(wildcard ./$(srcs)/*.cpp)) #./app/src/main.cpp
 # Debug: Print SRCS to verify it's populated
 $(info Sources: $(SRCS))
 
@@ -53,7 +54,7 @@ target_client: $(CLIENT_TARGET)
 $(SERVER_TARGET): $(OBJS)
 	@echo "Linking $@"
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJS)
 	@mv $(SERVER_TARGET) $(BUILD_DIR)
 	@echo "Build complete"
 
@@ -61,7 +62,7 @@ $(SERVER_TARGET): $(OBJS)
 $(CLIENT_TARGET): $(OBJS)
 	@echo "Linking $@"
 	@mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS)
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJS)
 	@mv $(CLIENT_TARGET) $(BUILD_DIR)
 	@echo "Build complete"
 
@@ -74,6 +75,6 @@ $(BUILD_DIR)/%.o: %.cpp
 # Clean up build files
 clean:
 	@echo "Cleaning build directory..."
-	@rm -rf $(BUILD_DIR)
+	@rm -rf $(BUILD_DIR) ./*.log
 
 .PHONY: all clean
