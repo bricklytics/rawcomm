@@ -143,7 +143,6 @@ void StopAndWaitController::sendAck(uint8_t seq_num) const {
     std::vector<uint8_t> ackPacket = serializeHeader(packetAck.header);;
     ackPacket.insert(ackPacket.begin(), START_MARK);
 
-    std::cout << "Sending ACK for seq_num: " << seq_num << std::endl;
     transmitter->sendData(ackPacket);
 }
 
@@ -160,7 +159,6 @@ void StopAndWaitController::sendNack(uint8_t seq_num) const {
     std::vector<uint8_t> ackPacket = serializeHeader(packetAck.header);;
     ackPacket.insert(ackPacket.begin(), START_MARK);
 
-    std::cout << "Sending NACK for seq_num: " << seq_num << std::endl;
     transmitter->sendData(ackPacket);
 }
 

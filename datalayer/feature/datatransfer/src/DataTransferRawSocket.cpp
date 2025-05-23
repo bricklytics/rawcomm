@@ -94,7 +94,6 @@ bool DataTransferRawSocket::sendData(const std::vector<uint8_t> &payload) {
         perror("Packet sending failed");
         return false;
     }
-    std::cout << "Packet sent successfully!" << std::endl;
     return true;
 }
 
