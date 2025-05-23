@@ -28,12 +28,12 @@ bool ClientUiController::sendMovement(uint8_t move) const {
 }
 
 bool ClientUiController::listen() {
-    auto msg = protocol->receiveMsg();
+    auto packet = protocol->receiveMsg();
 
-    if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::TEXT_ACK_NOME) ||
-        this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::MEDIA_ACK_NOME) ||
-        this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::IMAGE_ACK_NOME)) {
-        fileObserver.post(msg);
+    if (packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::TEXT_ACK_NOME) ||
+        packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::MEDIA_ACK_NOME) ||
+        packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::IMAGE_ACK_NOME)) {
+        fileObserver.post(packet.data);
         return true;
     }
 
