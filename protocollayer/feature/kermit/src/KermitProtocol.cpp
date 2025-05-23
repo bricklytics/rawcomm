@@ -12,12 +12,16 @@ KermitProtocol::KermitProtocol(IFlowController *controller) {
     this->controller = controller;
 }
 
-bool KermitProtocol::sendMsg(PacketUtils::PacketType type, const std::vector<uint8_t> &data) {
-    this->controller->packet_type = static_cast<uint8_t>(type);
-    return controller->dispatch(data);
+bool KermitProtocol::sendMsg(const PacketUtils::PacketType type, const std::vector<uint8_t> &data) {
+    PacketUtils::Packet packet{};
+    packet.header.size = data.size();
+    packet.header.type = PacketUtils::toUint8(type);
+    packet.data.insert(packet.data.end(),data.begin(), data.end());
+
+    return controller->dispatch(packet);
 }
 
-std::vector<uint8_t> KermitProtocol::receiveMsg() {
+PacketUtils::Packet KermitProtocol::receiveMsg() {
     return controller->receive();
 }
 
@@ -25,29 +29,31 @@ bool KermitProtocol::sendFileInfo(FileUtils::FileType type, const std::string &f
     //send packet with file name
     const std::filesystem::path inputFilePath{filePath};
     std::string filename = inputFilePath.filename().string();
-    std::vector<uint8_t> packet(filename.begin(),filename.end());
 
-    std::cerr << "Sending file " << filename << "of type "<< FileUtils::toUint8(type) << std::endl;
-    this->controller->packet_type = FileUtils::toUint8(type);
-    if (!controller->dispatch(packet)) return false;
+    //send file name
+    PacketUtils::Packet packetName{};
+    packetName.header.type = FileUtils::toUint8(type);
+    packetName.header.size = std::min(filename.size(), static_cast<size_t>(FILE_NAME_SIZE_MAX));
+    packetName.data = std::vector<uint8_t>(filename.begin(),filename.end());
+
+    if (!controller->dispatch(packetName)) return false;
 
     //send file size
+    PacketUtils::Packet packetSize{};
     auto fileSize = std::filesystem::file_size(inputFilePath);
-    this->controller->packet_type = PacketUtils::toUint8(PacketUtils::PacketType::SIZE);
+    packetSize.header.type = PacketUtils::toUint8(PacketUtils::PacketType::SIZE);
 
-    packet.clear();
     auto value = std::min(fileSize, static_cast<uintmax_t>(FILE_SIZE_MAX));
     for (size_t i = 0; i < sizeof(size_t); ++i) {
-        packet.push_back(static_cast<uint8_t>((value >> (8 * i)) & 0xFF));
+        packetSize.data.push_back(static_cast<uint8_t>((value >> (8 * i)) & 0xFF));
     }
-
-    std::cerr << "Dispatching file size packet: " << fileSize << std::endl;
-    if (!controller->dispatch(packet)) return false;
+    packetSize.header.size = packetSize.data.size();
+    if (!controller->dispatch(packetSize)) return false;
 
     return true;
 }
 
-bool KermitProtocol::sendFile(FileUtils::FileType type, const std::string &filePath) {
+bool KermitProtocol::sendFile(const FileUtils::FileType type, const std::string &filePath) {
     if (!sendFileInfo(type, filePath)) {
         std::cerr << "Failed to send file file info packet" << filePath << std::endl;
         return false;
@@ -61,23 +67,25 @@ bool KermitProtocol::sendFile(FileUtils::FileType type, const std::string &fileP
 
     std::streamsize bytesRead = 0;
     while (!iFile.eof()) {
-        std::vector<uint8_t> buffer(DATA_SIZE_MAX, 0);
-        iFile.read(reinterpret_cast<char *>(buffer.data()), buffer.size());
+        PacketUtils::Packet packet;
+        packet.data = std::vector<uint8_t>(DATA_SIZE_MAX, 0);
+        iFile.read(reinterpret_cast<char *>(packet.data.data()), DATA_SIZE_MAX);
 
-        bytesRead = iFile.gcount();
-        if (bytesRead < DATA_SIZE_MAX) {
-            buffer.resize(bytesRead);
-            buffer.shrink_to_fit();
+        if (iFile.eof()) {
+            packet.header.type = PacketUtils::toUint8(PacketUtils::PacketType::EOFP);
+            controller->dispatch({});
+            continue;
         }
 
-        controller->packet_type = PacketUtils::toUint8(PacketUtils::PacketType::DATA);
-        if (!controller->dispatch(buffer)) {
+        packet.header.size = iFile.gcount();
+        if (packet.header.size < DATA_SIZE_MAX) {
+            packet.data.resize(bytesRead);
+        }
+
+        packet.header.type = PacketUtils::toUint8(PacketUtils::PacketType::DATA);
+        if (!controller->dispatch(packet)) {
             std::cerr << "Failed to send file " << filePath << std::endl;
             return false;
-        }
-        if (iFile.eof()) {
-            controller->packet_type = PacketUtils::toUint8(PacketUtils::PacketType::EOFP);
-            controller->dispatch({});
         }
     }
     iFile.close();
@@ -88,16 +96,16 @@ bool KermitProtocol::receiveFile(std::vector<uint8_t> fileName) {
     std::string defaultFilePath = "./tesouros/";
 
     auto sizePacket = controller->receive();
-    if (sizePacket.empty()) {
+    if (sizePacket.data.empty()) {
         std::cerr << "Failed to receive file size packet" << std::endl;
         return false;
     }
 
     if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::SIZE)) {
         long fileSize = 0L;
-        size_t maxBytes = std::min(sizePacket.size(), sizeof(unsigned long));
+        size_t maxBytes = std::min(sizePacket.data.size(), sizeof(unsigned long));
         for (size_t i = 0; i < maxBytes; ++i) {
-            fileSize |= static_cast<unsigned long>(sizePacket[i]) << (8 * i);
+            fileSize |= static_cast<unsigned long>(sizePacket.data[i]) << (8 * i);
         }
         this->fileSize = fileSize;
     }
@@ -112,11 +120,11 @@ bool KermitProtocol::receiveFile(std::vector<uint8_t> fileName) {
 
     bool isEndOfData = false, writeFailed = false;
     while (!isEndOfData) {
-        auto packet_data = controller->receive();
-        isEndOfData = packet_data.empty(); //when file ending packet is received or timeout
+        auto packet = controller->receive();
+        isEndOfData = packet.data.empty(); //when file ending packet is received or timeout
 
         if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::DATA) && !isEndOfData) {
-            oFile.write(reinterpret_cast<const char *>(packet_data.data()), packet_data.size());
+            oFile.write(reinterpret_cast<const char *>(packet.data.data()), packet.header.size);
             writeFailed = oFile.fail();
             if (writeFailed) {
                 std::cerr << "Failed to write to file " << defaultFilePath << std::endl;

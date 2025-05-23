@@ -37,7 +37,7 @@ int main() {
 
         packetData.clear();
         packetData.insert(packetData.begin(), upstream.begin(), upstream.end());
-        kermitProtocol.sendFile(FileUtils::FileType::TEXT, "tesouros/1.txt");
+        kermitProtocol.sendMsg(PacketUtils::PacketType::DATA, packetData);
         counter++;
         std::this_thread::sleep_for(std::chrono::milliseconds(500));  // Reduce CPU usage
     }
@@ -47,9 +47,9 @@ int main() {
     KermitProtocol kermitProtocol(controller);
 
     while (counter <= RETRIES){
-        auto downStream = kermitProtocol.receiveFile(std::vector<uint8_t>(1,'1'));
-        if (downStream) {
-            std::cout << "Received Data: " << std::endl;
+        auto packet = kermitProtocol.receiveMsg();
+        if (!packet.data.empty()) {
+            std::cout << "Received Data: " << std::string(packet.data.begin(), packet.data.end()) << std::endl;
             counter = 0;
         }
         counter++;

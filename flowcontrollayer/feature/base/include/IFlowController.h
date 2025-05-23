@@ -5,8 +5,9 @@
 #ifndef IFLOWCONTROLER_H
 #define IFLOWCONTROLER_H
 
-#include <vector>
 #include <cstdint>
+
+#include "PacketType.h"
 
 class IFlowController {
 public:
@@ -15,8 +16,8 @@ public:
 
     virtual ~IFlowController() = default;
 
-    virtual bool dispatch(const std::vector<uint8_t>& data) = 0;
-    virtual std::vector<uint8_t> receive() = 0;
+    virtual bool dispatch(const PacketUtils::Packet& data) = 0;
+    virtual PacketUtils::Packet receive() = 0;
     virtual void notify() = 0;
 };
 #endif //IFLOWCONTROLER_H

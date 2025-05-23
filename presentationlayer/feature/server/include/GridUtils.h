@@ -32,6 +32,11 @@ public:
         }
     }
 
+    /**
+     * Convert to ncurses key from byte
+     * @param cmd - the byte command
+     * @return the ncurses key
+     */
     static int toInt(const uint8_t cmd) {
         int key = 0;
         switch (uInt8ToDirection(cmd)) {
@@ -45,6 +50,11 @@ public:
         return key;
     }
 
+    /**
+     * Convert to byte from ncurses key
+     * @param cmd - the ncurses key
+     * @return the byte command
+     */
     static uint8_t toUint8(const int cmd) {
         uint8_t key = 0;
         switch (cmd) {

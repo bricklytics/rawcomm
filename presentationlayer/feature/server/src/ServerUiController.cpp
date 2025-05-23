@@ -55,8 +55,8 @@ bool ServerUiController::sendFile(const std::string &filePath) const {
 }
 
 void ServerUiController::listen() {
-    auto msg = protocol->receiveMsg();
-    if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::MOVE_DATA)) {
-        moveObserver.post(GridUtils::toInt(msg[0])); // Convert to ncurses key from byte
+    auto packet = protocol->receiveMsg();
+    if (packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::MOVE_DATA)) {
+        moveObserver.post(GridUtils::toInt(packet.data[0]));
     }
 }
