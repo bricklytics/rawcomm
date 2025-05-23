@@ -116,7 +116,7 @@ int main() {
 
     int ch;
     ServerUiController serverUiController(interface);
-    LogUtils logger = LogUtils("server.log");
+    LogUtils logger = LogUtils("/dev/null");
     logger.start();
 
     serverUiController.moveObserver.observe([&ch](int move) {
@@ -140,7 +140,7 @@ int main() {
             case KEY_RIGHT: player.x = wrap(player.x + 1, GRID_SIZE); break;
             default: continue;
         }
-
+        ch = ERR;
         moveLog.push_back(player);
         if (moveLog.size() > LOG_SIZE) {
             moveLog.erase(moveLog.begin());

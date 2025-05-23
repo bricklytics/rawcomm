@@ -22,29 +22,28 @@ void drawCommandTable(int startY, int startX) {
     mvprintw(startY + 2, startX, "k / v : Move Down");
     mvprintw(startY + 3, startX, "j / < : Move Left");
     mvprintw(startY + 4, startX, "l / > : Move Right");
-    mvprintw(startY + 4, startX, "q : Quit");
+    mvprintw(startY + 5, startX, "q : Quit");
 }
 
 void drawStatusLine(int screenY, const std::string &message) {
-    mvprintw(screenY - 1, 0, "Status: %s", message.c_str());
+    mvprintw(screenY + 3, 2, "Status: %s", message.c_str());
     clrtoeol(); // Clear the rest of the line
 }
 
 void drawLastMovement(int screenY, const std::string &move) {
-    mvprintw(screenY / 2, 0, "Last movement: %s", move.c_str());
+    mvprintw(screenY + 2, 2, "Last movement: %s", move.c_str());
     clrtoeol();
 }
 
 void drawScreen(
-    int screenY,
     const std::string &lastMove,
     const std::string &statusMsg
 ) {
     clear();
 
     drawCommandTable(1, 2);
-    drawLastMovement(screenY, lastMove);
-    drawStatusLine(screenY, statusMsg);
+    drawLastMovement(5, lastMove);
+    drawStatusLine(8, statusMsg);
 
     refresh();
 }
@@ -67,9 +66,6 @@ int main() {
     nodelay(stdscr, TRUE); // Make getch() non-blocking
     curs_set(0); // Hide cursor
 
-    int screenY, screenX;
-    getmaxyx(stdscr, screenY, screenX);
-
     std::string lastMove = "None";
     std::string statusMsg = "";
 
@@ -77,7 +73,7 @@ int main() {
     // std::cout << "Enter the network interface (e.g., lo, eth0): ";
     // std::cin >> interface;
 
-    LogUtils logger = LogUtils("client.log");
+    LogUtils logger = LogUtils("/dev/null");
     logger.start();
 
     int ch;
@@ -90,7 +86,7 @@ int main() {
         }
     });
 
-    drawScreen(screenY, lastMove, statusMsg);
+    drawScreen(lastMove, statusMsg);
     while (running.load()) {
         ch = getch();
         if (ch == ERR) continue;
@@ -105,7 +101,7 @@ int main() {
             statusMsg = "Invalid input. Press q to quit.";
         }
 
-        drawScreen(screenY, lastMove, statusMsg);
+        drawScreen(lastMove, statusMsg);
         if (ch == 'q') {
             running = false;
             break;
