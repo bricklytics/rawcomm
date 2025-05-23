@@ -1,9 +1,15 @@
 //
 // Created by julio-martins on 5/21/25.
 //
+/**
+ * - When trying to receive file, it fails
+ * - getch() is conflicting with listen and causing issues with file receive/send command
+ */
 
 #ifdef CLIENT
+#include <atomic>
 #include <string>
+#include <thread>
 
 #include "LogUtils.h"
 #include "../include/ClientUiController.h"
@@ -43,11 +49,22 @@ void drawScreen(
     refresh();
 }
 
+// Declare a flag to signal termination
+std::atomic<bool> running(true);
+
+void startListening(ClientUiController &controller) {
+    while (running.load()) {
+        controller.listen(); // Non-blocking check for raw socket data
+        std::this_thread::sleep_for(std::chrono::milliseconds(10)); // prevent busy loop
+    }
+}
+
 int main() {
     initscr(); // Start ncurses
     cbreak(); // Disable line buffering
     noecho(); // Don't echo input
     keypad(stdscr, TRUE); // Enable special keys (arrows)
+    nodelay(stdscr, TRUE); // Make getch() non-blocking
     curs_set(0); // Hide cursor
 
     int screenY, screenX;
@@ -63,7 +80,9 @@ int main() {
     LogUtils logger = LogUtils("client.log");
     logger.start();
 
+    int ch;
     ClientUiController clientUiController(interface);
+    std::thread listenerThread(startListening, std::ref(clientUiController));
 
     clientUiController.fileObserver.observe([&clientUiController, &statusMsg](std::vector<uint8_t> fileName) {
         if (!clientUiController.saveIncomingFile(fileName)) {
@@ -71,26 +90,32 @@ int main() {
         }
     });
 
-    int ch = getch();
     drawScreen(screenY, lastMove, statusMsg);
-    while (ch != 'q') {
-        if (ch == ERR) clientUiController.listen();
-        else {
-            auto it = clientUiController.directionMap.find(ch);
-            if (it != clientUiController.directionMap.end()) {
-                lastMove = it->second;
-                statusMsg = "Command sent to server.";
-                if (!clientUiController.sendMovement(GridUtils::toUint8(it->first))) {
-                    statusMsg = "Failed to send move command.";
-                }
-            } else {
-                statusMsg = "Invalid input. Press q to quit.";
-            }
-            drawScreen(screenY, lastMove, statusMsg);
-        }
+    while (running.load()) {
         ch = getch();
+        if (ch == ERR) continue;
+
+        auto it = clientUiController.directionMap.find(ch);
+        if (it != clientUiController.directionMap.end()) {
+            lastMove = it->second;
+            if (!clientUiController.sendMovement(GridUtils::toUint8(it->first))) {
+                statusMsg = "Failed to send move command. Try again!";
+            }
+        } else {
+            statusMsg = "Invalid input. Press q to quit.";
+        }
+
+        drawScreen(screenY, lastMove, statusMsg);
+        if (ch == 'q') {
+            running = false;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 
+    // Clean up
+    running = false;
+    listenerThread.join();
     logger.stop();
     endwin(); // End ncurses mode
     return 0;

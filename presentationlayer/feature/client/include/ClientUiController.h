@@ -29,7 +29,8 @@ public:
         {'j', "< Left"},
         {KEY_LEFT, "< Left"},
         {'l', "> Right"},
-        {KEY_RIGHT, "> Right"}
+        {KEY_RIGHT, "> Right"},
+        {'q', "Quit"}
     };
 
     ClientUiController(std::string interface);
