@@ -43,7 +43,7 @@ public:
      * Receive a array of bytes over Kermit protocol.
      * @return The received data chunk.
      */
-    std::vector<uint8_t> receiveMsg() override;
+    PacketUtils::Packet receiveMsg() override;
 
     /**
      * Receive a file over Kermit protocol.
