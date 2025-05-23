@@ -2,6 +2,9 @@
 // Created by julio-martins on 5/19/25.
 //
 
+/**
+ * - When sending file, it doesn`t preserve the file content - malformed packets
+ */
 #ifdef SERVER
 #include <vector>
 #include <cstdlib>
@@ -26,12 +29,12 @@ std::list<std::string> getFiles() {
     std::list<std::string> files = {};
 
     try {
-        for (const auto& entry : std::filesystem::directory_iterator(path)) {
+        for (const auto &entry: std::filesystem::directory_iterator(path)) {
             if (entry.is_regular_file()) {
                 files.push_back(entry.path().filename());
             }
         }
-    } catch (const std::filesystem::filesystem_error& e) {
+    } catch (const std::filesystem::filesystem_error &e) {
         throw std::runtime_error("Filesystem error: " + std::string(e.what()));
     }
     return files;
@@ -57,7 +60,6 @@ void drawGrid(const Position &player,
               const std::vector<Position> &log,
               const std::string &lastMessage) {
     clear();
-    mvprintw(0, 0, "Use arrow keys to move. Press 'q' to quit.");
 
     // Draw grid
     for (int y = 0; y < GRID_SIZE; ++y) {
@@ -105,6 +107,7 @@ int main() {
     Position player{0, 0};
     std::vector moveLog = {player};
     std::unordered_map<Position, std::string> treasures = generateTreasures(GRID_SIZE);
+    std::unordered_map<Position, std::string>::iterator found;
     std::string lastMessage = "";
 
     std::string interface = "veth0";
@@ -120,11 +123,12 @@ int main() {
         ch = move;
     });
 
-    serverUiController.fileObserver.observe([&serverUiController](std::string fileName) {
-        if (!serverUiController.sendFile(fileName)) {
-            std::cerr << "Failed to send file." << std::endl;
-        }
-    });
+    serverUiController.fileObserver
+            .observe([&serverUiController, &found, &treasures](std::string fileName) {
+                if (serverUiController.sendFile(fileName)) {
+                    treasures.erase(found); // only trigger once
+                }
+            });
 
     drawGrid(player, treasures, moveLog, lastMessage);
     while (ch != 'q') {
@@ -142,13 +146,11 @@ int main() {
             moveLog.erase(moveLog.begin());
         }
 
-        auto found = treasures.find(player);
+        found = treasures.find(player);
         if (found != treasures.end()) {
             lastMessage = "Treasure found. Sending file " + found->second + " to client...";
             drawGrid(player, treasures, moveLog, lastMessage);
-
             serverUiController.fileObserver.post(found->second);
-            treasures.erase(found); // only trigger once
         }
         drawGrid(player, treasures, moveLog, lastMessage);
     }

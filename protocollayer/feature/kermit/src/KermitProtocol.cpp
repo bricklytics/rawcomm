@@ -23,15 +23,12 @@ std::vector<uint8_t> KermitProtocol::receiveMsg() {
 
 bool KermitProtocol::sendFileInfo(FileUtils::FileType type, const std::string &filePath) const {
     //send packet with file name
-    this->controller->packet_type = FileUtils::toUint8(type);
     const std::filesystem::path inputFilePath{filePath};
     std::string filename = inputFilePath.filename().string();
-    if (filename.find('.') != std::string::npos) {
-        filename = filename.substr(0, filename.find('.'));
-    }
-
     std::vector<uint8_t> packet(filename.begin(),filename.end());
 
+    std::cerr << "Sending file " << filename << "of type "<< FileUtils::toUint8(type) << std::endl;
+    this->controller->packet_type = FileUtils::toUint8(type);
     if (!controller->dispatch(packet)) return false;
 
     //send file size
@@ -52,7 +49,7 @@ bool KermitProtocol::sendFileInfo(FileUtils::FileType type, const std::string &f
 
 bool KermitProtocol::sendFile(FileUtils::FileType type, const std::string &filePath) {
     if (!sendFileInfo(type, filePath)) {
-        std::cerr << "Fail to send file file info packet" << filePath << std::endl;
+        std::cerr << "Failed to send file file info packet" << filePath << std::endl;
         return false;
     }
 
@@ -88,7 +85,7 @@ bool KermitProtocol::sendFile(FileUtils::FileType type, const std::string &fileP
 }
 
 bool KermitProtocol::receiveFile(std::vector<uint8_t> fileName) {
-    std::string defaultFilePath = "objetos/";
+    std::string defaultFilePath = "./tesouros/";
 
     auto sizePacket = controller->receive();
     if (sizePacket.empty()) {
@@ -126,7 +123,6 @@ bool KermitProtocol::receiveFile(std::vector<uint8_t> fileName) {
                 break;
             }
         }
-        this->bytesDownloaded += packet_data.size();
     }
 
     oFile.close();

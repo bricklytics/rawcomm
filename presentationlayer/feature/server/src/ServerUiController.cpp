@@ -51,16 +51,6 @@ FileUtils::FileType ServerUiController::getFileType(const std::string &filePath)
 
 bool ServerUiController::sendFile(const std::string &filePath) const {
     auto fileType = getFileType(filePath);
-    std::string fullName = filePath;
-    switch (fileType) {
-        case FileUtils::FileType::TEXT: fullName.append(".txt");
-            break;
-        case FileUtils::FileType::IMAGE: fullName.append(".jpg");
-            break;
-        case FileUtils::FileType::VIDEO: fullName.append(".mp4");
-            break;
-        default: return false;
-    }
     return this->protocol->sendFile(fileType, filePath);
 }
 
