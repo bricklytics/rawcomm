@@ -30,7 +30,7 @@ public:
         MOVE_DOWN = 0x0C, // Move down packet
         MOVE_LEFT = 0x0D, // Move left packet
         ERROR = 0x0F // Error packet
-        //Types 0x03, 0x05 and 0x0E are reserved for future use
+        //Types 0x05 and 0x0E are reserved for future use
     };
 
     typedef struct kermit_header {
@@ -42,10 +42,15 @@ public:
 
     typedef struct kermit_packet {
         uint8_t start_mark;
-        PacketHeader header;
-        std::vector<uint8_t> data;
+        PacketHeader header{};
+        std::vector<uint8_t> data{};
     } Packet;
 
+    /**
+     * Convert to byte from packet type
+     * @param type - the packet type
+     * @return the byte command
+     */
     static uint8_t toUint8(PacketType type) {
         switch (type) {
             case PacketType::ACK: return 0x00;
@@ -65,6 +70,11 @@ public:
         }
     }
 
+    /**
+     * Convert to packet type from byte
+     * @param type - the byte command
+     * @return the packet type
+     */
     static PacketType toPacketType(uint8_t type) {
         switch (type) {
             case 0x00: return PacketType::ACK;
