@@ -21,37 +21,38 @@ StopAndWaitController::~StopAndWaitController() {
     delete errorControlStrategy;
 }
 
-bool StopAndWaitController::dispatch(const std::vector<uint8_t> &data) {
-    if (data.size() > DATA_SIZE_MAX) {
+bool StopAndWaitController::dispatch(const PacketUtils::Packet &packet) {
+    if (packet.header.size > DATA_SIZE_MAX) {
         std::cerr << "Data size too large" << std::endl;
         return false;
     }
-    if (data.empty()) return false;
 
     //Prepare header
-    PacketUtils::PacketHeader header{};
-    header.size = data.size();
+    PacketUtils::Packet packet_temp{};
+
+    packet_temp.start_mark = START_MARK;
+    packet_temp.header.size = packet.header.size;
     current_seq = nextSeqNum();
-    header.seq_num = current_seq;
-    header.type = packet_type;
-    header.checksum = 0;
+    packet_temp.header.seq_num = current_seq;
+    packet_temp.header.type = packet.header.type;
+    packet_temp.header.checksum = 0;
+    packet_temp.data = {};
 
-    std::vector<uint8_t> checksumData = serializeHeader(header);
-    checksumData.insert(checksumData.end(), data.begin(), data.end());
-    header.checksum = errorControlStrategy->generate(checksumData);
-    checksumData[2] = header.checksum;
+    auto checksumData = serializeHeader(packet_temp.header);
+    checksumData.insert(checksumData.end(), packet.data.begin(), packet.data.end());
+    packet_temp.header.checksum = errorControlStrategy->generate(checksumData);
 
-    // Send the packet
-    std::vector<uint8_t> packet;
-    packet.push_back(START_MARK);
-    packet.insert(packet.end(), checksumData.begin(), checksumData.end());
+    //serialize packet
+    auto buffer = serializeHeader(packet_temp.header);
+    buffer.insert(buffer.begin(), packet_temp.start_mark);
+    buffer.insert(buffer.end(), packet.data.begin(), packet.data.end());
 
     // Send the packet
     bool hasSucceeded = false;
     int retries = 0;
     do {
-        if (transmitter->sendData(packet))
-            hasSucceeded = waitForAck(header.seq_num); // Block until ACK/NACK is received
+        if (transmitter->sendData(buffer))
+            hasSucceeded = waitForAck(packet_temp.header.seq_num);
 
         if (retries > RETRIES) return hasSucceeded;
         retries++;
@@ -60,34 +61,34 @@ bool StopAndWaitController::dispatch(const std::vector<uint8_t> &data) {
     return hasSucceeded;
 }
 
-std::vector<uint8_t> StopAndWaitController::receive() {
+PacketUtils::Packet StopAndWaitController::receive() {
     bool hasSucceeded = false;
-    std::vector<uint8_t> checksumData, data;
-    PacketUtils::PacketHeader header{};
+    PacketUtils::Packet packet{};
 
-    do {
+    while (!hasSucceeded) {
         auto pckt = transmitter->receiveData();
-        if (pckt.empty()) return pckt; // Timeout or error
-        if (pckt[0] != START_MARK) continue;
+        if (pckt.empty())  return {};
 
         //Prepare header
-        auto header_buffer = std::vector(pckt.begin() + 1, pckt.begin() + sizeof(PacketUtils::PacketHeader));
-        header = deserializeHeader(header_buffer);
+        packet.start_mark = pckt[0];
+        if (packet.start_mark != START_MARK) continue;
 
-        // Recover data for checksum
-        checksumData.insert(checksumData.end(), pckt.begin() + 1, pckt.end());
-        data.insert(data.end(), pckt.begin() + sizeof(PacketUtils::PacketHeader), pckt.end());
-
-        //should control if the packet seq_num is the expected one - send error packet
-        if (!errorControlStrategy->assert(checksumData)) sendNack(header.seq_num);
+        pckt.erase(pckt.begin());
+        if (!errorControlStrategy->assert(pckt)) sendNack(packet.header.seq_num);
         else hasSucceeded = true;
-    } while (!hasSucceeded);
 
-    sendAck(header.seq_num);
-    packet_type = header.type;
-    current_seq = header.seq_num;
+        packet.header = deserializeHeader(
+            std::vector(pckt.begin(), pckt.begin() + sizeof(PacketUtils::PacketHeader) - 1)
+        );
+        pckt.erase(pckt.begin(), pckt.begin() + sizeof(PacketUtils::PacketHeader) - 1);
+        packet.data.insert(packet.data.begin(), pckt.begin(), pckt.end());
+    }
 
-    return data;
+    sendAck(packet.header.seq_num);
+    packet_type = packet.header.type;
+    current_seq = packet.header.seq_num;
+
+    return packet;
 }
 
 void StopAndWaitController::notify() {
@@ -102,6 +103,8 @@ uint8_t StopAndWaitController::nextSeqNum() const {
 
 bool StopAndWaitController::waitForAck(uint8_t seq_num) const {
     bool hasSucceeded = false;
+    PacketUtils::Packet packet{};
+
     while (!hasSucceeded) {
         auto pckt = transmitter->receiveData();
 
@@ -109,64 +112,55 @@ bool StopAndWaitController::waitForAck(uint8_t seq_num) const {
             if (transmitter->hasTimeout) break;
             continue;
         }
-        if (pckt[0] != START_MARK) continue;
+        packet.start_mark = pckt[0];
+        if (packet.start_mark != START_MARK) continue;
 
-        //Prepare header
-        PacketUtils::PacketHeader header;
-        auto header_buffer = std::vector(pckt.begin() + 1, pckt.begin() + sizeof(PacketUtils::PacketHeader));
-        header = deserializeHeader(header_buffer);
+        pckt.erase(pckt.begin());
+        packet.header = deserializeHeader(
+            std::vector(pckt.begin(),pckt.begin() + sizeof(PacketUtils::PacketHeader))
+        );
 
-        // Recover data for checksum
-        std::vector<uint8_t> checksumData = serializeHeader(header);
-        if (errorControlStrategy->assert(checksumData) &&
-            header.seq_num == seq_num &&
-            header.type == PacketUtils::toUint8(PacketUtils::PacketType::ACK)
+        if (errorControlStrategy->assert(pckt) &&
+            packet.header.seq_num == seq_num &&
+            packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::ACK)
         ) hasSucceeded = true;
-        if (header.type == PacketUtils::toUint8(PacketUtils::PacketType::NACK)) break;
+        if (packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::NACK)) break;
     }
 
     return hasSucceeded;
 }
 
-void StopAndWaitController::sendAck(uint8_t seq_num) {
-    PacketUtils::PacketHeader ackHeader{};
-    ackHeader.size = 0;
-    ackHeader.seq_num = seq_num;
-    ackHeader.type = PacketUtils::toUint8(PacketUtils::PacketType::ACK);
-    ackHeader.checksum = 0;
-    packet_type = ackHeader.type;
+void StopAndWaitController::sendAck(uint8_t seq_num) const {
+    PacketUtils::Packet packetAck{};
+    packetAck.header.size = 0;
+    packetAck.header.seq_num = seq_num;
+    packetAck.header.type = PacketUtils::toUint8(PacketUtils::PacketType::ACK);
+    packetAck.header.checksum = 0;
 
-    auto buffer = serializeHeader(ackHeader);
-    ackHeader.checksum = errorControlStrategy->generate(buffer);
-    buffer.clear();
-    buffer = serializeHeader(ackHeader);
+    auto buffer = serializeHeader(packetAck.header);
+    packetAck.header.checksum = errorControlStrategy->generate(buffer);
 
-    std::vector<uint8_t> ackPacket;
-    ackPacket.push_back(START_MARK);
-    ackPacket.insert(ackPacket.end(), buffer.begin(), buffer.end());
+    std::vector<uint8_t> ackPacket = serializeHeader(packetAck.header);;
+    ackPacket.insert(ackPacket.begin(), START_MARK);
 
-    std::cout << "Sending ACK for seq_num: " << static_cast<int>(seq_num) << std::endl;
+    std::cout << "Sending ACK for seq_num: " << seq_num << std::endl;
     transmitter->sendData(ackPacket);
 }
 
-void StopAndWaitController::sendNack(uint8_t seq_num) {
-    PacketUtils::PacketHeader ackHeader{};
-    ackHeader.size = 0;
-    ackHeader.seq_num = seq_num;
-    ackHeader.type = PacketUtils::toUint8(PacketUtils::PacketType::NACK);
-    ackHeader.checksum = 0;
-    packet_type = ackHeader.type;
+void StopAndWaitController::sendNack(uint8_t seq_num) const {
+    PacketUtils::Packet packetAck{};
+    packetAck.header.size = 0;
+    packetAck.header.seq_num = seq_num;
+    packetAck.header.type = PacketUtils::toUint8(PacketUtils::PacketType::NACK);
+    packetAck.header.checksum = 0;
 
-    auto buffer = serializeHeader(ackHeader);
-    ackHeader.checksum = errorControlStrategy->generate(buffer);
-    buffer.clear();
-    buffer = serializeHeader(ackHeader);
+    auto buffer = serializeHeader(packetAck.header);
+    packetAck.header.checksum = errorControlStrategy->generate(buffer);
 
-    std::vector<uint8_t> ackPacket;
-    ackPacket.push_back(START_MARK);
-    ackPacket.insert(ackPacket.end(), buffer.begin(), buffer.end());
+    std::vector<uint8_t> ackPacket = serializeHeader(packetAck.header);;
+    ackPacket.insert(ackPacket.begin(), START_MARK);
 
-    std::cout << "Sending NACK for seq_num: " << static_cast<int>(seq_num) << std::endl;
+    std::cout << "Sending NACK for seq_num: " << seq_num << std::endl;
     transmitter->sendData(ackPacket);
 }
 

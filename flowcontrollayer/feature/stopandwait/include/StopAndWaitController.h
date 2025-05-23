@@ -5,6 +5,8 @@
 #ifndef STOPANDWAITCONTROLLER_H
 #define STOPANDWAITCONTROLLER_H
 
+#include <vector>
+
 #include "../../base/include/IFlowController.h"
 #include "../../../../datalayer/feature/datatransfer/include/DataTransferRawSocket.h"
 #include "../../../../errorcontrollayer/feature/checksum/include/ChecksumStrategy.h"
@@ -25,8 +27,8 @@ class StopAndWaitController final : public IFlowController {
     uint8_t nextSeqNum() const;
     bool waitForAck(uint8_t seq_num) const;
 
-    void sendAck(uint8_t seq_num);
-    void sendNack(uint8_t seq_num);
+    void sendAck(uint8_t seq_num) const;
+    void sendNack(uint8_t seq_num) const;
 
     static std::vector<uint8_t> serializeHeader(const PacketUtils::PacketHeader& header);
     static PacketUtils::PacketHeader deserializeHeader(const std::vector<uint8_t>& buffer);
@@ -38,16 +40,16 @@ public:
 
     /**
      * Send data reliably (with retransmission and acknowledgment)
-     * @param data the data to be sent
+     * @param packet the data to be sent
      * @return  true if the data was sent successfully, false otherwise
      */
-    bool dispatch(const std::vector<uint8_t> &data) override;
+    bool dispatch(const PacketUtils::Packet &packet) override;
 
     /**
      * Receive a packet and handle it sending ACK/NACK
-     * @return  a vector of bytes containing the received packet
+     * @return  a packet of bytes containing the received packet
      */
-    std::vector<uint8_t> receive() override;
+    PacketUtils::Packet receive() override;
 
     /**
      * Notify the controller of delivery status (e.g., ACK or NACK)
