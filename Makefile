@@ -56,6 +56,7 @@ $(SERVER_TARGET): $(OBJS)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJS)
 	@mv $(SERVER_TARGET) $(BUILD_DIR)
+	@$(MAKE) postbuild_cleanup
 	@echo "Build complete"
 
 # Build the client target
@@ -64,6 +65,7 @@ $(CLIENT_TARGET): $(OBJS)
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) -o $@ $(OBJS)
 	@mv $(CLIENT_TARGET) $(BUILD_DIR)
+	@$(MAKE) postbuild_cleanup
 	@echo "Build complete"
 
 # Compile each source file into an object file
@@ -71,6 +73,12 @@ $(BUILD_DIR)/%.o: %.cpp
 	@echo "Compiling $< -> $@"
 	@mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) $(INCLUDE_DIR) -c $< -o $@
+
+# Post-build cleanup rule
+postbuild_cleanup:
+	@echo "Cleaning up temporary files..."
+	@find $(BUILD_DIR) -type f ! -name 'server' ! -name 'client' -delete
+	@find $(BUILD_DIR) -type d -empty -delete
 
 # Clean up build files
 clean:
