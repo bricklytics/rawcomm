@@ -55,7 +55,7 @@ bool KermitProtocol::sendFileInfo(FileUtils::FileType type, const std::string &f
 
 bool KermitProtocol::sendFile(const FileUtils::FileType type, const std::string &filePath) {
     if (!sendFileInfo(type, filePath)) {
-        std::cerr << "Failed to send file file info packet" << filePath << std::endl;
+        std::cerr << "Failed to send file info packet" << std::endl;
         return false;
     }
 
