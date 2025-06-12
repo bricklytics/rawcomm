@@ -19,6 +19,10 @@
 #include "../include/GridUtils.h"
 #include "../include/ServerUiController.h"
 
+Position player{0, 0};
+std::vector moveLog = {player};
+std::unordered_map<Position, std::string> treasures;
+std::string lastMessage;
 
 int wrap(int value, int max) {
     return (value % max + max) % max;
@@ -54,14 +58,25 @@ std::unordered_map<Position, std::string> generateTreasures(int count) {
     }
     return treasures;
 }
+void drawMoveLog() {
+    // Draw movement log
+    mvprintw(GRID_SIZE + 3, 0, "Movement log (last %d steps):", LOG_SIZE);
+    int logStart = std::max(0, static_cast<int>(moveLog.size()) - LOG_SIZE);
+    for (int i = 0; i < LOG_SIZE; ++i) {
+        int logIndex = logStart + i;
+        if (logIndex < moveLog.size()) {
+            mvprintw(GRID_SIZE + 4 + i, 0, "Step %2d: (%d, %d)   ", logIndex + 1, moveLog[logIndex].x, moveLog[logIndex].y);
+        } else {
+            mvprintw(GRID_SIZE + 4 + i, 0, "                         ");
+        }
+    }
+}
 
-void drawGrid(const Position &player,
-              const std::unordered_map<Position, std::string> &treasures,
-              const std::vector<Position> &log,
-              const std::string &lastMessage) {
-    clear();
+void drawMessageStatus() {
+    mvprintw(GRID_SIZE + LOG_SIZE + 5, 0, "Message: %-80s", lastMessage.c_str());
+}
 
-    // Draw grid
+void drawGrid() {
     for (int y = 0; y < GRID_SIZE; ++y) {
         for (int x = 0; x < GRID_SIZE; ++x) {
             Position p{x, y};
@@ -78,22 +93,13 @@ void drawGrid(const Position &player,
             }
         }
     }
+}
 
-    // Draw movement log
-    mvprintw(GRID_SIZE + 3, 0, "Movement log (last %d steps):", LOG_SIZE);
-    int logStart = std::max(0, static_cast<int>(log.size()) - LOG_SIZE);
-    for (int i = 0; i < LOG_SIZE; ++i) {
-        int logIndex = logStart + i;
-        if (logIndex < log.size()) {
-            mvprintw(GRID_SIZE + 4 + i, 0, "Step %2d: (%d, %d)   ", logIndex + 1, log[logIndex].x, log[logIndex].y);
-        } else {
-            mvprintw(GRID_SIZE + 4 + i, 0, "                         ");
-        }
-    }
-
-    // Display latest message
-    mvprintw(GRID_SIZE + LOG_SIZE + 5, 0, "Message: %-80s", lastMessage.c_str());
-
+void drawScreen() {
+    clear();
+    drawGrid();
+    drawMoveLog();
+    drawMessageStatus();
     refresh();
 }
 
@@ -104,11 +110,9 @@ int main() {
     noecho();
     curs_set(0);
 
-    Position player{0, 0};
-    std::vector moveLog = {player};
-    std::unordered_map<Position, std::string> treasures = generateTreasures(GRID_SIZE);
+    treasures = generateTreasures(GRID_SIZE);
     std::unordered_map<Position, std::string>::iterator found;
-    std::string lastMessage = "";
+    lastMessage = "";
 
     std::string interface = "veth0";
     // std::cout << "Enter the network interface (e.g., lo, eth0): ";
@@ -123,14 +127,21 @@ int main() {
         ch = move;
     });
 
-    serverUiController.fileObserver
-            .observe([&serverUiController, &found, &treasures](std::string fileName) {
-                if (serverUiController.sendFile(fileName)) {
-                    treasures.erase(found); // only trigger once
-                }
-            });
+    serverUiController.fileObserver.observe([&serverUiController, &found](std::string fileName) {
+        if (serverUiController.sendFile(fileName)) {
+            treasures.erase(found); // only trigger once
+            serverUiController.setStatusMessage("File sent successfully!");
+        } else {
+            serverUiController.setStatusMessage("Failed to send file:" + std::string(fileName));
+        }
+    });
 
-    drawGrid(player, treasures, moveLog, lastMessage);
+    serverUiController.statusObserver.observe( [](std::string msg) {
+        lastMessage = msg;
+        drawScreen();
+    });
+
+    drawScreen();
     while (ch != 'q') {
         serverUiController.listen();
         switch (ch) {
@@ -148,11 +159,12 @@ int main() {
 
         found = treasures.find(player);
         if (found != treasures.end()) {
-            lastMessage = "Treasure found. Sending file " + found->second + " to client...";
-            drawGrid(player, treasures, moveLog, lastMessage);
+            serverUiController.setStatusMessage(
+                "Treasure found! Sending file " + found->second + " to client..."
+            );
             serverUiController.fileObserver.post(found->second);
         }
-        drawGrid(player, treasures, moveLog, lastMessage);
+        drawScreen();
     }
     logger.stop();
     endwin();

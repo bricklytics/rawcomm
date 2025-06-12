@@ -60,3 +60,7 @@ void ServerUiController::listen() {
         moveObserver.post(GridUtils::toInt(packet.data[0]));
     }
 }
+
+void ServerUiController::setStatusMessage(std::string msg) {
+    statusObserver.post(msg);
+}
