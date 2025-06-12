@@ -39,3 +39,8 @@ bool ClientUiController::listen() {
 
     return false;
 }
+
+void ClientUiController::setStatusMessage(std::string msg) {
+    statusObserver.post(msg);
+}
+

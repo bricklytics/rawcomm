@@ -19,6 +19,7 @@ class ClientUiController {
 public:
     DataObserver<std::vector<uint8_t>> fileObserver;
     DataObserver<uint8_t> movementObserver;
+    DataObserver<std::string> statusObserver; //send status messages
 
     // Movement mappings
     const std::unordered_map<int, std::string> directionMap = {
@@ -39,5 +40,6 @@ public:
     bool listen();
     bool saveIncomingFile(std::vector<uint8_t> fileName) const;
     bool sendMovement(uint8_t move) const;
+    void setStatusMessage(std::string msg);
 };
 #endif //CLIENTCONTROLLER_H
