@@ -11,13 +11,15 @@
 
 class IFlowController {
 public:
-    uint8_t packet_type = 0x00;
-    uint8_t current_seq = 0xFF;
+    uint8_t packet_type;
+    uint8_t current_seq;
+    uint8_t error_code;
 
     virtual ~IFlowController() = default;
 
     virtual bool dispatch(const PacketUtils::Packet& data) = 0;
     virtual PacketUtils::Packet receive() = 0;
     virtual void notify() = 0;
+    virtual void sendError(int err) = 0;
 };
 #endif //IFLOWCONTROLER_H
