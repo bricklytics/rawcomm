@@ -58,20 +58,27 @@ void startListening(ClientUiController &controller) {
     }
 }
 
-int main() {
+int main(int argc, const char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <interface name>" << std::endl;
+        return EXIT_FAILURE;
+    }
+    if (argc > 2 && argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <interface name> <output file>" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    std::string interface = std::string(argv[1]);
+    std::string default_log_file = (argc == 3 ? std::string(argv[2]) : "/dev/null");
+    LogUtils logger = LogUtils(default_log_file);
+    logger.start();
+
     initscr(); // Start ncurses
     cbreak(); // Disable line buffering
     noecho(); // Don't echo input
     keypad(stdscr, TRUE); // Enable special keys (arrows)
     nodelay(stdscr, TRUE); // Make getch() non-blocking
     curs_set(0); // Hide cursor
-
-    std::string interface = "veth1";
-    // std::cout << "Enter the network interface (e.g., lo, eth0): ";
-    // std::cin >> interface;
-
-    LogUtils logger = LogUtils("/dev/null");
-    logger.start();
 
     int ch;
     ClientUiController clientUiController(interface);
@@ -113,7 +120,7 @@ int main() {
         }
 
         drawScreen();
-        if (ch == 'q') break;
+        if (ch == 'q') running = false;
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 
@@ -122,6 +129,6 @@ int main() {
     listenerThread.join();
     logger.stop();
     endwin(); // End ncurses mode
-    return 0;
+    return EXIT_SUCCESS;
 }
 #endif

@@ -103,7 +103,21 @@ void drawScreen() {
     refresh();
 }
 
-int main() {
+int main(int argc, const char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <interface name>" << std::endl;
+        return EXIT_FAILURE;
+    }
+    if (argc > 2 && argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <interface name> <output file>" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    std::string interface(argv[1]);
+    std::string default_log_file = (argc == 3 ? std::string(argv[2]) : "/dev/null");
+    LogUtils logger = LogUtils(default_log_file);
+    logger.start();
+
     srand(time(nullptr));
     initscr();
     keypad(stdscr, TRUE);
@@ -114,14 +128,8 @@ int main() {
     std::unordered_map<Position, std::string>::iterator found;
     lastMessage = "";
 
-    std::string interface = "veth0";
-    // std::cout << "Enter the network interface (e.g., lo, eth0): ";
-    // std::cin >> interface;
-
     int ch;
     ServerUiController serverUiController(interface);
-    LogUtils logger = LogUtils("/dev/null");
-    logger.start();
 
     serverUiController.moveObserver.observe([&ch](int move) {
         ch = move;
@@ -168,6 +176,6 @@ int main() {
     }
     logger.stop();
     endwin();
-    return 0;
+    return EXIT_SUCCESS;
 }
 #endif
