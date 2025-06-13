@@ -15,6 +15,7 @@ StopAndWaitController::StopAndWaitController(IBaseSocket *transmitter) {
     this->transmitter->setTimeout(TIMEOUT_SECONDS); // Set timeout for receiving
     this->packet_type = PacketUtils::toUint8(PacketUtils::PacketType::ACK);
     this->current_seq = 0xFF;
+    this->error_code = 0x00;
 }
 
 StopAndWaitController::~StopAndWaitController() {
@@ -26,6 +27,7 @@ bool StopAndWaitController::dispatch(const PacketUtils::Packet &packet) {
         std::cerr << "Data size too large" << std::endl;
         return false;
     }
+    this->error_code = 0;
 
     //Prepare header
     PacketUtils::Packet packet_temp{};
@@ -54,6 +56,8 @@ bool StopAndWaitController::dispatch(const PacketUtils::Packet &packet) {
         if (transmitter->sendData(buffer))
             hasSucceeded = waitForAck(packet_temp.header.seq_num);
 
+        if (this->error_code > 0) return false; //something goes wrong, stop transmission
+
         if (retries > RETRIES) return hasSucceeded;
         retries++;
     } while (!hasSucceeded);
@@ -67,7 +71,7 @@ PacketUtils::Packet StopAndWaitController::receive() {
 
     while (!hasSucceeded) {
         auto pckt = transmitter->receiveData();
-        if (pckt.empty())  return {};
+        if (pckt.empty()) return {};
 
         //Prepare header
         packet.start_mark = pckt[0];
@@ -101,7 +105,7 @@ uint8_t StopAndWaitController::nextSeqNum() const {
     return next;
 }
 
-bool StopAndWaitController::waitForAck(uint8_t seq_num) const {
+bool StopAndWaitController::waitForAck(uint8_t seq_num) {
     bool hasSucceeded = false;
     PacketUtils::Packet packet{};
 
@@ -115,15 +119,21 @@ bool StopAndWaitController::waitForAck(uint8_t seq_num) const {
         packet.start_mark = pckt[0];
         if (packet.start_mark != START_MARK) continue;
 
+        if (packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::ERROR)) {
+            this->error_code = packet.data[0];
+            return false;
+        }
+
         pckt.erase(pckt.begin());
         packet.header = deserializeHeader(
-            std::vector(pckt.begin(),pckt.begin() + sizeof(PacketUtils::PacketHeader))
+            std::vector(pckt.begin(), pckt.begin() + sizeof(PacketUtils::PacketHeader))
         );
 
         if (errorControlStrategy->assert(pckt) &&
             packet.header.seq_num == seq_num &&
             packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::ACK)
-        ) hasSucceeded = true;
+        )
+            hasSucceeded = true;
         if (packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::NACK)) break;
     }
 
@@ -160,6 +170,26 @@ void StopAndWaitController::sendNack(uint8_t seq_num) const {
     ackPacket.insert(ackPacket.begin(), START_MARK);
 
     transmitter->sendData(ackPacket);
+}
+
+void StopAndWaitController::sendError(int err) {
+    auto err_num = PacketUtils::toErrorType(err);
+    this->error_code = err_num; //Sender needs to know what error
+
+    PacketUtils::Packet packetError{};
+    packetError.header.size = 0;
+    packetError.header.seq_num = 0;
+    packetError.header.type = PacketUtils::toUint8(PacketUtils::PacketType::ERROR);
+    packetError.header.checksum = 0;
+    packetError.data.push_back(err_num);
+
+    auto buffer = serializeHeader(packetError.header);
+    packetError.header.checksum = errorControlStrategy->generate(buffer);
+
+    std::vector<uint8_t> errorPacket = serializeHeader(packetError.header);;
+    errorPacket.insert(errorPacket.begin(), START_MARK);
+
+    transmitter->sendData(errorPacket);
 }
 
 std::vector<uint8_t> StopAndWaitController::serializeHeader(const PacketUtils::PacketHeader &header) {

@@ -25,7 +25,7 @@ class StopAndWaitController final : public IFlowController {
     IErrorControlStrategy *errorControlStrategy;
 
     uint8_t nextSeqNum() const;
-    bool waitForAck(uint8_t seq_num) const;
+    bool waitForAck(uint8_t seq_num);
 
     void sendAck(uint8_t seq_num) const;
     void sendNack(uint8_t seq_num) const;
@@ -56,6 +56,8 @@ public:
      * This method is called whenever an ACK or NACK is required.
      */
     void notify() override;
+
+    void sendError(int err) override;
 };
 
 #endif //STOPANDWAITCONTROLLER_H
