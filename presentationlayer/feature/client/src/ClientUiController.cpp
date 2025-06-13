@@ -41,6 +41,7 @@ bool ClientUiController::listen() {
 }
 
 void ClientUiController::setStatusMessage(std::string msg) {
-    statusObserver.post(msg);
+    auto errorMsg = protocol->getErrorMsg();
+    statusObserver.post(msg + " - " + errorMsg);
 }
 

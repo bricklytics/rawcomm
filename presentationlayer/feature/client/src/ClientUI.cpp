@@ -79,11 +79,11 @@ int main() {
 
     clientUiController.fileObserver.observe([&clientUiController](std::vector<uint8_t> fileName) {
         clientUiController.setStatusMessage(
-            "Saving incoming file"+ std::string(fileName)
+            "Saving incoming file"+ std::string(fileName.begin(), fileName.end())
         );
         if (!clientUiController.saveIncomingFile(fileName)) {
             clientUiController.setStatusMessage(
-                "Failed to save incoming file" + std::string(fileName)
+                "Failed to save incoming file" + std::string(fileName.begin(), fileName.end())
             );
         } else {
             clientUiController.setStatusMessage("File successfully saved!");
