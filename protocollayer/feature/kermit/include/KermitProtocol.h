@@ -15,8 +15,9 @@
 class KermitProtocol final : public IBaseProtocol {
     IFlowController *controller;
 
-    long fileSize = 0L;
-    long bytesDownloaded = 0L;
+    long fileSize;
+    long bytesDownloaded;
+    uint8_t error_code;
 
     bool sendFileInfo(FileUtils::FileType type, const std::string &filePath) const;
 
@@ -51,5 +52,11 @@ public:
      * @return The received data chunk.
      */
     bool receiveFile(std::vector<uint8_t> fileName) override;
+
+    /**
+     * Return a standard error message
+     * @return a message
+     */
+    std::string getErrorMsg() override;
 };
 #endif //KERMITPROTOCOL_H

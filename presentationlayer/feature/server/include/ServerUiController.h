@@ -19,12 +19,14 @@ class ServerUiController {
 public:
     DataObserver<int> moveObserver;
     DataObserver<std::string> fileObserver;
+    DataObserver<std::string> statusObserver; //send status messages
 
     ServerUiController(const std::string &interface);
     ~ServerUiController();
 
     void listen();
     bool sendFile(const std::string &filePath) const;
+    void setStatusMessage(std::string msg);
 };
 
 #endif //SERVERUICONTROLLER_H

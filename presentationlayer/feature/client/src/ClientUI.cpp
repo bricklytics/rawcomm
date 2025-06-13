@@ -14,36 +14,36 @@
 #include "LogUtils.h"
 #include "../include/ClientUiController.h"
 #include "../../server/include/GridUtils.h"
-#include "../include/ClientUiController.h"
+
+
+std::string lastMove;
+std::string statusMsg;
 
 void drawCommandTable(int startY, int startX) {
     mvprintw(startY, startX, "Permitted Commands:");
-    mvprintw(startY + 1, startX, "i / ^ Move Up");
+    mvprintw(startY + 1, startX, "i / ^ : Move Up");
     mvprintw(startY + 2, startX, "k / v : Move Down");
     mvprintw(startY + 3, startX, "j / < : Move Left");
     mvprintw(startY + 4, startX, "l / > : Move Right");
     mvprintw(startY + 5, startX, "q : Quit");
 }
 
-void drawStatusLine(int screenY, const std::string &message) {
-    mvprintw(screenY + 3, 2, "Status: %s", message.c_str());
+void drawStatusLine(int screenY) {
+    mvprintw(screenY + 3, 0, "Status: %s", statusMsg.c_str());
     clrtoeol(); // Clear the rest of the line
 }
 
-void drawLastMovement(int screenY, const std::string &move) {
-    mvprintw(screenY + 2, 2, "Last movement: %s", move.c_str());
+void drawLastMovement(int screenY) {
+    mvprintw(screenY + 2, 0, "Last movement: %s", lastMove.c_str());
     clrtoeol();
 }
 
-void drawScreen(
-    const std::string &lastMove,
-    const std::string &statusMsg
-) {
+void drawScreen() {
     clear();
 
-    drawCommandTable(1, 2);
-    drawLastMovement(5, lastMove);
-    drawStatusLine(8, statusMsg);
+    drawCommandTable(1, 0);
+    drawLastMovement(8);
+    drawStatusLine(8);
 
     refresh();
 }
@@ -58,7 +58,21 @@ void startListening(ClientUiController &controller) {
     }
 }
 
-int main() {
+int main(int argc, const char* argv[]) {
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <interface name>" << std::endl;
+        return EXIT_FAILURE;
+    }
+    if (argc > 2 && argc != 3) {
+        std::cerr << "Usage: " << argv[0] << " <interface name> <output file>" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    std::string interface = std::string(argv[1]);
+    std::string default_log_file = (argc == 3 ? std::string(argv[2]) : "/dev/null");
+    LogUtils logger = LogUtils(default_log_file);
+    logger.start();
+
     initscr(); // Start ncurses
     cbreak(); // Disable line buffering
     noecho(); // Don't echo input
@@ -66,27 +80,29 @@ int main() {
     nodelay(stdscr, TRUE); // Make getch() non-blocking
     curs_set(0); // Hide cursor
 
-    std::string lastMove = "None";
-    std::string statusMsg = "";
-
-    std::string interface = "veth1";
-    // std::cout << "Enter the network interface (e.g., lo, eth0): ";
-    // std::cin >> interface;
-
-    LogUtils logger = LogUtils("/dev/null");
-    logger.start();
-
     int ch;
     ClientUiController clientUiController(interface);
     std::thread listenerThread(startListening, std::ref(clientUiController));
 
-    clientUiController.fileObserver.observe([&clientUiController, &statusMsg](std::vector<uint8_t> fileName) {
+    clientUiController.fileObserver.observe([&clientUiController](std::vector<uint8_t> fileName) {
+        clientUiController.setStatusMessage(
+            "Saving incoming file"+ std::string(fileName.begin(), fileName.end())
+        );
         if (!clientUiController.saveIncomingFile(fileName)) {
-            statusMsg = "Failed to save treausure";
+            clientUiController.setStatusMessage(
+                "Failed to save incoming file" + std::string(fileName.begin(), fileName.end())
+            );
+        } else {
+            clientUiController.setStatusMessage("File successfully saved!");
         }
     });
 
-    drawScreen(lastMove, statusMsg);
+    clientUiController.statusObserver.observe([](std::string msg) {
+        statusMsg = msg;
+        drawScreen();
+    });
+
+    drawScreen();
     while (running.load()) {
         ch = getch();
         if (ch == ERR) continue;
@@ -95,17 +111,16 @@ int main() {
         if (it != clientUiController.directionMap.end()) {
             lastMove = it->second;
             if (!clientUiController.sendMovement(GridUtils::toUint8(it->first))) {
-                statusMsg = "Failed to send move command. Try again!";
+                 clientUiController
+                    .setStatusMessage("Failed to send move command. Try again!");
             }
         } else {
-            statusMsg = "Invalid input. Press q to quit.";
+             clientUiController
+                .setStatusMessage("Invalid input. Press q to quit.");
         }
 
-        drawScreen(lastMove, statusMsg);
-        if (ch == 'q') {
-            running = false;
-            break;
-        }
+        drawScreen();
+        if (ch == 'q') running = false;
         std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
 
@@ -114,6 +129,6 @@ int main() {
     listenerThread.join();
     logger.stop();
     endwin(); // End ncurses mode
-    return 0;
+    return EXIT_SUCCESS;
 }
 #endif

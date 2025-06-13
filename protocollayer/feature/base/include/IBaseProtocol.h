@@ -18,6 +18,7 @@ public:
     virtual bool sendFile(FileUtils::FileType type, const std::string& filePath) = 0;
     virtual PacketUtils::Packet receiveMsg() = 0;
     virtual bool receiveFile(std::vector<uint8_t> fileName) = 0;
+    virtual std::string getErrorMsg() = 0;
 };
 
 #endif //IBASEPROTOCOL_H

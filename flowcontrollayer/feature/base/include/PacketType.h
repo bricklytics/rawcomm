@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <cerrno>
 
 #define DATA_SIZE_MAX 127               // Maximum data size in a packet in bytes
 #define PAKET_SIZE_MAX 127              // Maximum packet size in bytes - including header
@@ -31,6 +32,12 @@ public:
         MOVE_LEFT = 0x0D, // Move left packet
         ERROR = 0x0F // Error packet
         //Types 0x05 and 0x0E are reserved for future use
+    };
+
+    enum class ErrorType : uint8_t {
+        EACCESS = 1,
+        ESTORAGE = 2,
+        EGENERIC = 3
     };
 
     typedef struct kermit_header {
@@ -92,6 +99,21 @@ public:
             case 0x0D: return PacketType::MOVE_LEFT;
             default: return PacketType::ERROR; // Error packet
         }
+    }
+
+    static uint8_t toErrorType(int code) {
+        uint8_t errCode;
+        switch (code) {
+            case EACCES: errCode = 1;
+                break;
+            case EDQUOT:
+            case ENOSPC: errCode = 2;
+                break;
+            default: errCode = 3;
+                break;
+        }
+
+        return errCode;
     }
 };
 
