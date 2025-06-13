@@ -10,6 +10,9 @@
 
 KermitProtocol::KermitProtocol(IFlowController *controller) {
     this->controller = controller;
+    this->error_code = -1;
+    this->fileSize = 0L;
+    this->bytesDownloaded = 0L;
 }
 
 bool KermitProtocol::sendMsg(const PacketUtils::PacketType type, const std::vector<uint8_t> &data) {
@@ -61,7 +64,7 @@ bool KermitProtocol::sendFile(const FileUtils::FileType type, const std::string 
 
     std::ifstream iFile(filePath, std::ios_base::binary);
     if (!iFile.is_open()) {
-        std::cerr << "Failed to open file " << filePath << std::endl;
+        controller->sendError(errno);
         return false;
     }
 
@@ -73,7 +76,8 @@ bool KermitProtocol::sendFile(const FileUtils::FileType type, const std::string 
 
         if (iFile.eof()) {
             packet.header.type = PacketUtils::toUint8(PacketUtils::PacketType::EOFP);
-            controller->dispatch({});
+            packet.data.clear();
+            controller->dispatch(packet);
             continue;
         }
 
@@ -95,17 +99,22 @@ bool KermitProtocol::sendFile(const FileUtils::FileType type, const std::string 
 bool KermitProtocol::receiveFile(std::vector<uint8_t> fileName) {
     std::string defaultFilePath = "./tesouros/";
 
-    auto sizePacket = controller->receive();
-    if (sizePacket.data.empty()) {
+    auto packet = controller->receive();
+    if (packet.data.empty()) {
         std::cerr << "Failed to receive file size packet" << std::endl;
         return false;
     }
 
-    if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::SIZE)) {
+    if (packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::ERROR)) {
+        this->error_code = packet.data[0];
+        return false;
+    }
+
+    if (packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::SIZE)) {
         long fileSize = 0L;
-        size_t maxBytes = std::min(sizePacket.data.size(), sizeof(unsigned long));
+        size_t maxBytes = std::min(packet.data.size(), sizeof(unsigned long));
         for (size_t i = 0; i < maxBytes; ++i) {
-            fileSize |= static_cast<unsigned long>(sizePacket.data[i]) << (8 * i);
+            fileSize |= static_cast<unsigned long>(packet.data[i]) << (8 * i);
         }
         this->fileSize = fileSize;
     }
@@ -114,20 +123,25 @@ bool KermitProtocol::receiveFile(std::vector<uint8_t> fileName) {
 
     std::ofstream oFile(defaultFilePath, std::ios_base::binary);
     if (!oFile.is_open()) {
-        std::cerr << "Failed to open file " << defaultFilePath << std::endl;
+        controller->sendError(errno);
         return false;
     }
 
     bool isEndOfData = false, writeFailed = false;
     while (!isEndOfData) {
-        auto packet = controller->receive();
+        packet = controller->receive();
         isEndOfData = packet.data.empty(); //when file ending packet is received or timeout
 
-        if (this->controller->packet_type == PacketUtils::toUint8(PacketUtils::PacketType::DATA) && !isEndOfData) {
+        if (packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::ERROR)) {
+            this->error_code = packet.data[0];
+            return false;
+        }
+
+        if (packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::DATA) && !isEndOfData) {
             oFile.write(reinterpret_cast<const char *>(packet.data.data()), packet.header.size);
             writeFailed = oFile.fail();
             if (writeFailed) {
-                std::cerr << "Failed to write to file " << defaultFilePath << std::endl;
+                controller->sendError(errno);
                 break;
             }
         }
@@ -137,4 +151,14 @@ bool KermitProtocol::receiveFile(std::vector<uint8_t> fileName) {
     if (writeFailed) return false;
 
     return true;
+}
+
+std::string KermitProtocol::getErrorMsg() {
+    switch (this->error_code) {
+        case 0: return "";
+        case 1: return "Access denied";
+        case 2: return "Insufficient storage or quota";
+        case 3:
+        default: return "Generic error";
+    }
 }
