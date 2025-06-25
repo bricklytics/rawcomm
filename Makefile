@@ -10,10 +10,6 @@ CLIENT_TARGET = client
 SERVER_TARGET = server
 LDFLAGS = -lncurses -pthread
 
-# Source dirs
-#LAYER_DIRS=$(shell ls -dC *layer/feature/*/src/)
-#$(info Layers: $(LAYER_DIRS))
-
 SRC_DIR=$(shell ls -dC *layer/feature/*/src/)
 # Debug: Print SRC_DIR to verify it's populated
 $(info Sources Dir: $(SRC_DIR))
@@ -36,13 +32,6 @@ $(info Includes: $(INCLUDES))
 
 # Generate corresponding object files in the build directory
 OBJS=$(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))
-
-run: $(TARGET)
-	@echo "Running $<"
-	@sudo ./$(BUILD_DIR)/$<
-
-# Default target
-#all: target_server target_client
 
 target_server: CXXFLAGS += -DSERVER
 target_server: $(SERVER_TARGET)
