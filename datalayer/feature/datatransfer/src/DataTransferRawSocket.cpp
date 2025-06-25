@@ -91,7 +91,7 @@ bool DataTransferRawSocket::sendData(const std::vector<uint8_t> &payload) {
     );
 
     if (isSent < 0) {
-        perror("Packet sending failed");
+        std::cerr << "Packet sending failed" << std::endl;
         return false;
     }
     return true;

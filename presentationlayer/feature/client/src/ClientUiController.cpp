@@ -29,6 +29,9 @@ bool ClientUiController::sendMovement(uint8_t move) const {
 
 bool ClientUiController::listen() {
     auto packet = protocol->receiveMsg();
+    if (packet.data.empty() && packet.header.type == 0 && packet.header.checksum == 0) {
+        statusObserver.post("Timeout");
+    }
 
     if (packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::TEXT_ACK_NOME) ||
         packet.header.type == PacketUtils::toUint8(PacketUtils::PacketType::MEDIA_ACK_NOME) ||
