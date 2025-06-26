@@ -60,7 +60,7 @@ When not providing logfile output will be sent do "/dev/null"
 ## Customization
 
 - Add new protocols or strategies by extending the appropriate `feature` directories.
-- Place test files in `objetos/` or `tesouros/` for transfer experiments.
+- Place test files in `objetos/` and let `tesouros/` be destination folder for transfer experiments.
 
 ## License
 
